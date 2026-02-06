@@ -391,6 +391,14 @@ class ImportanceScorer:
     SITELINKS_MIN_THRESHOLD = 3
     SITELINKS_LOW_MULTIPLIER = 0.5
 
+    # Fixed normalization bounds so importance score is independent of run/cohort.
+    # Bounds chosen from sample of WWII events: sitelinks max 73, pageviews max ~55k, backlinks cap 500.
+    NORM_SITELINKS_MIN = 0
+    NORM_SITELINKS_MAX = 80
+    NORM_PAGEVIEWS_MAX_RAW = 60_000
+    NORM_BACKLINKS_MIN = 0
+    NORM_BACKLINKS_MAX = 500
+
     def __init__(
         self,
         weight_sitelinks: float | None = None,
@@ -425,7 +433,9 @@ class ImportanceScorer:
         for i, e in enumerate(events):
             pct = (i + 1) * 100 // total_events if total_events else 0
             if pct != last_logged_pct and pct % 10 == 0:
-                logger.info("Importance scoring: %d%% (%d/%d)", pct, i + 1, total_events)
+                logger.info(
+                    "Importance scoring: %d%% (%d/%d)", pct, i + 1, total_events
+                )
                 last_logged_pct = pct
             title = e.get("wikipedia_title")
             if not title:
@@ -461,32 +471,30 @@ class ImportanceScorer:
             e["pageviews_30d"] = pv
             e["backlink_count"] = bl
             good.append(e)
-        sitelinks_vals = [(e.get("sitelink_count") or 0) for e in good]
-        pageviews_vals = [e.get("pageviews_30d") or 0 for e in good]
-        backlinks_vals = [
-            min(e.get("backlink_count") or 0, BACKLINKS_LIMIT) for e in good
-        ]
-        min_s, max_s = min(sitelinks_vals), max(sitelinks_vals)
-        min_pv, max_pv = min(pageviews_vals), max(pageviews_vals)
-        min_b, max_b = min(backlinks_vals), max(backlinks_vals)
-        min_log_pv = math.log1p(min_pv)
-        max_log_pv = math.log1p(max_pv)
-        range_s = max_s - min_s
-        range_log_pv = max_log_pv - min_log_pv
-        range_b = max_b - min_b
+
+        range_s = self.NORM_SITELINKS_MAX - self.NORM_SITELINKS_MIN
+        range_log_pv = math.log1p(self.NORM_PAGEVIEWS_MAX_RAW) - math.log1p(0)
+        range_b = self.NORM_BACKLINKS_MAX - self.NORM_BACKLINKS_MIN
 
         def scale(x: float, lo: float, range_val: float) -> float:
             if range_val <= 0:
                 return 0.0
-            return (x - lo) / range_val
+            return max(0.0, min(1.0, (x - lo) / range_val))
 
         for e in good:
-            s = scale((e.get("sitelink_count") or 0), min_s, range_s)
-            pv_raw = e.get("pageviews_30d") or 0
-            p = scale(math.log1p(pv_raw), min_log_pv, range_log_pv)
-            b = scale(
-                min(e.get("backlink_count") or 0, BACKLINKS_LIMIT), min_b, range_b
+            s = scale(
+                (e.get("sitelink_count") or 0),
+                self.NORM_SITELINKS_MIN,
+                range_s,
             )
+            pv_raw = e.get("pageviews_30d") or 0
+            p = scale(
+                math.log1p(pv_raw),
+                math.log1p(0),
+                range_log_pv,
+            )
+            bl_capped = min(e.get("backlink_count") or 0, BACKLINKS_LIMIT)
+            b = scale(bl_capped, self.NORM_BACKLINKS_MIN, range_b)
             score = (
                 self.weight_sitelinks * s
                 + self.weight_pageviews * p
