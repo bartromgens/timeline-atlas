@@ -3,8 +3,16 @@
 import argparse
 import json
 import re
+import time
+from datetime import datetime, timedelta, timezone
+from urllib.error import HTTPError
+from urllib.parse import quote, unquote, urlencode
+from urllib.request import Request, urlopen
 
 from SPARQLWrapper import SPARQLWrapper, JSON
+
+WIKIDATA_MAX_RETRIES = 3
+WIKIDATA_DEFAULT_RETRY_SECONDS = 60
 
 
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
@@ -63,6 +71,75 @@ def extract_wikidata_id(uri: str) -> str | None:
     return m.group(1) if m else None
 
 
+def _get_http_error(exc: BaseException) -> HTTPError | None:
+    if isinstance(exc, HTTPError):
+        return exc
+    cause = getattr(exc, "__cause__", None)
+    return cause if isinstance(cause, HTTPError) else None
+
+
+def execute_sparql_with_retry(
+    sparql: SPARQLWrapper,
+    max_retries: int = WIKIDATA_MAX_RETRIES,
+) -> dict:
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return sparql.query().convert()
+        except Exception as e:
+            last_exc = e
+            http_err = _get_http_error(e)
+            if http_err is None:
+                raise
+            if http_err.code == 429:
+                seconds = WIKIDATA_DEFAULT_RETRY_SECONDS
+                ra = http_err.headers.get("Retry-After")
+                if ra is not None:
+                    try:
+                        seconds = int(ra)
+                    except (ValueError, TypeError):
+                        pass
+                if attempt < max_retries:
+                    time.sleep(seconds)
+                else:
+                    raise
+            elif http_err.code == 403:
+                raise RuntimeError(
+                    "Wikidata returned 403 (rate limit abuse). Wait before retrying."
+                ) from e
+            else:
+                raise
+    assert last_exc is not None
+    raise last_exc
+
+
+def fetch_sitelink_counts(sparql: SPARQLWrapper, qids: list[str]) -> dict[str, int]:
+    if not qids:
+        return {}
+    result = {q: 0 for q in qids}
+    batch_size = 50
+    for i in range(0, len(qids), batch_size):
+        batch = qids[i : i + batch_size]
+        values = " ".join(f"wd:{q}" for q in batch)
+        query = f"""
+        PREFIX schema: <http://schema.org/>
+        PREFIX wd: <http://www.wikidata.org/entity/>
+        SELECT ?item ?sitelink
+        WHERE {{
+          VALUES ?item {{ {values} }}
+          OPTIONAL {{ ?sitelink schema:about ?item . }}
+        }}
+        """
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        raw = execute_sparql_with_retry(sparql)
+        for b in raw.get("results", {}).get("bindings", []):
+            qid = extract_wikidata_id(b.get("item", {}).get("value", ""))
+            if qid and b.get("sitelink"):
+                result[qid] = result.get(qid, 0) + 1
+    return result
+
+
 def extract_wikipedia_title(url: str) -> str | None:
     if not url:
         return None
@@ -118,7 +195,7 @@ def run_query(
     sparql = SPARQLWrapper(WIKIDATA_SPARQL)
     sparql.setQuery(build_query(start_year, end_year, limit))
     sparql.setReturnFormat(JSON)
-    raw = sparql.query().convert()
+    raw = execute_sparql_with_retry(sparql)
 
     def get_val(row: dict, key: str) -> str | None:
         b = row.get(key)
@@ -182,6 +259,10 @@ def run_query(
                 "wikipedia_title": extract_wikipedia_title(article_val or ""),
             }
         )
+    qids = [e["wikidata_id"] for e in events if e.get("wikidata_id")]
+    sitelink_counts = fetch_sitelink_counts(sparql, qids)
+    for e in events:
+        e["sitelink_count"] = sitelink_counts.get(e.get("wikidata_id") or "", 0)
 
     def sortable_date(d: dict | None) -> str:
         if not d:
@@ -202,6 +283,80 @@ def run_query(
         )
     )
     return events
+
+
+PAGEVIEWS_BASE = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/all-agents"
+WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
+BACKLINKS_LIMIT = 500
+USER_AGENT = "TimelineAtlas/1.0 (Python; timeline-atlas)"
+
+
+def fetch_pageviews_last_30_days(title: str) -> int:
+    if not title:
+        return 0
+    end = datetime.now(timezone.utc).date()
+    start = end - timedelta(days=30)
+    start_str = start.strftime("%Y%m%d")
+    end_str = end.strftime("%Y%m%d")
+    title_decoded = unquote(title)
+    article_encoded = quote(
+        title_decoded.replace(" ", "_"), safe="-_.~()"
+    )
+    url = f"{PAGEVIEWS_BASE}/{article_encoded}/daily/{start_str}/{end_str}"
+    try:
+        req = Request(url, headers={"User-Agent": USER_AGENT})
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        items = data.get("items") or []
+        return sum(item.get("views", 0) for item in items)
+    except Exception:
+        return 0
+
+
+def fetch_backlink_count(title: str) -> int:
+    if not title:
+        return 0
+    params = {
+        "action": "query",
+        "list": "backlinks",
+        "bltitle": unquote(title).replace("_", " "),
+        "bllimit": BACKLINKS_LIMIT,
+        "format": "json",
+    }
+    url = f"{WIKIPEDIA_API}?{urlencode(params)}"
+    try:
+        req = Request(url, headers={"User-Agent": USER_AGENT})
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        bl = data.get("query", {}).get("backlinks") or []
+        return len(bl)
+    except Exception:
+        return 0
+
+
+def add_importance(events: list[dict]) -> None:
+    max_sitelinks = max((e.get("sitelink_count") or 0) for e in events) or 1
+    max_pageviews = 0
+    max_backlinks = 0
+    for e in events:
+        title = e.get("wikipedia_title")
+        if title:
+            pv = fetch_pageviews_last_30_days(title)
+            bl = fetch_backlink_count(title)
+            e["pageviews_30d"] = pv
+            e["backlink_count"] = bl
+            max_pageviews = max(max_pageviews, pv)
+            max_backlinks = max(max_backlinks, min(bl, BACKLINKS_LIMIT))
+        else:
+            e["pageviews_30d"] = 0
+            e["backlink_count"] = 0
+    max_pageviews = max_pageviews or 1
+    max_backlinks = max_backlinks or 1
+    for e in events:
+        s = (e.get("sitelink_count") or 0) / max_sitelinks
+        p = (e.get("pageviews_30d") or 0) / max_pageviews
+        b = min(e.get("backlink_count") or 0, BACKLINKS_LIMIT) / max_backlinks
+        e["importance_score"] = round((s + p + b) / 3, 4)
 
 
 def main() -> None:
@@ -238,6 +393,7 @@ def main() -> None:
         end_year=args.end_year,
         limit=args.limit,
     )
+    add_importance(events)
 
     if args.json:
         print(json.dumps(events, indent=2))
@@ -255,6 +411,11 @@ def main() -> None:
             print(f"  description: {e['description']}")
             print(f"  wikidata: {e['wikidata_url']}")
             print(f"  wikipedia: {e['wikipedia_url']}")
+            print(
+                f"  importance_score: {e['importance_score']} "
+                f"(sitelinks={e['sitelink_count']}, pageviews_30d={e['pageviews_30d']}, "
+                f"backlinks={e['backlink_count']})"
+            )
             print()
 
 
