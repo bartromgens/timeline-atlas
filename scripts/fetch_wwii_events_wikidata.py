@@ -32,6 +32,12 @@ def build_query(start_year: int | None, end_year: int | None, limit: int) -> str
             parts.append(f"(YEAR({sort_date_expr}) <= {end_year})")
         year_filter = " FILTER(" + " && ".join(parts) + ")"
 
+    # Wikidata time precision: 9=year, 10=month, 11=day, 12=hour, 13=minute, 14=second
+    day_precision_filter = (
+        " FILTER(?point_in_time_precision = 11 || "
+        "?start_time_precision = 11 || ?end_time_precision = 11)"
+    )
+
     return f"""
 PREFIX schema: <http://schema.org/>
 PREFIX wd: <http://www.wikidata.org/entity/>
@@ -57,6 +63,7 @@ WHERE {{
     ?article schema:isPartOf <https://en.wikipedia.org/> .
   }}
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+  {day_precision_filter}
   {year_filter}
 }}
 ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?point_in_time) || BOUND(?point_in_time_q) || BOUND(?end_time) || BOUND(?end_time_q)) ASC(COALESCE(?start_time, ?start_time_q, ?point_in_time, ?point_in_time_q, ?end_time, ?end_time_q))
