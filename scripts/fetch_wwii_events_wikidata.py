@@ -2,7 +2,10 @@
 
 import argparse
 import json
+import logging
+import math
 import re
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError
@@ -10,6 +13,8 @@ from urllib.parse import quote, unquote, urlencode
 from urllib.request import Request, urlopen
 
 from SPARQLWrapper import SPARQLWrapper, JSON
+
+logger = logging.getLogger(__name__)
 
 WIKIDATA_MAX_RETRIES = 3
 WIKIDATA_DEFAULT_RETRY_SECONDS = 60
@@ -92,9 +97,19 @@ def execute_sparql_with_retry(
     last_exc = None
     for attempt in range(max_retries + 1):
         try:
-            return sparql.query().convert()
+            result = sparql.query().convert()
+            if attempt > 0:
+                logger.info("SPARQL query succeeded on attempt %d", attempt + 1)
+            return result
         except Exception as e:
             last_exc = e
+            if attempt < max_retries:
+                logger.info(
+                    "SPARQL request failed (attempt %d/%d): %s",
+                    attempt + 1,
+                    max_retries + 1,
+                    e,
+                )
             http_err = _get_http_error(e)
             if http_err is None:
                 raise
@@ -199,6 +214,12 @@ def run_query(
     end_year: int | None = None,
     limit: int = 50,
 ) -> list[dict]:
+    logger.info(
+        "Querying Wikidata (start_year=%s, end_year=%s, limit=%d)",
+        start_year,
+        end_year,
+        limit,
+    )
     sparql = SPARQLWrapper(WIKIDATA_SPARQL)
     sparql.setQuery(build_query(start_year, end_year, limit))
     sparql.setReturnFormat(JSON)
@@ -215,11 +236,13 @@ def run_query(
         return None
 
     rows = raw.get("results", {}).get("bindings", [])
+    logger.info("Retrieved %d bindings from Wikidata", len(rows))
     by_qid: dict[str, list[dict]] = {}
     for row in rows:
         item_uri = row.get("item", {}).get("value", "")
         qid = extract_wikidata_id(item_uri) or ""
         by_qid.setdefault(qid, []).append(row)
+
     def pick_raw_and_precision(
         rows: list[dict], val_key: str, precision_key: str, qual_key: str
     ) -> tuple[str | None, str | None]:
@@ -267,6 +290,7 @@ def run_query(
             }
         )
     qids = [e["wikidata_id"] for e in events if e.get("wikidata_id")]
+    logger.info("Fetching sitelink counts for %d items", len(qids))
     sitelink_counts = fetch_sitelink_counts(sparql, qids)
     for e in events:
         e["sitelink_count"] = sitelink_counts.get(e.get("wikidata_id") or "", 0)
@@ -289,6 +313,7 @@ def run_query(
             or sortable_date(e["end_time"])
         )
     )
+    logger.info("Built %d events from Wikidata", len(events))
     return events
 
 
@@ -296,6 +321,29 @@ PAGEVIEWS_BASE = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-articl
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 BACKLINKS_LIMIT = 500
 USER_AGENT = "TimelineAtlas/1.0 (Python; timeline-atlas)"
+# Delay between Wikimedia/Wikipedia API requests to avoid 429 (no API key).
+WIKIMEDIA_REQUEST_DELAY_SECONDS = 0.5
+WIKIMEDIA_429_MAX_RETRIES = 3
+WIKIMEDIA_429_BACKOFF_SECONDS = 15
+
+
+def _request_with_429_retry(url: str) -> bytes:
+    for attempt in range(WIKIMEDIA_429_MAX_RETRIES):
+        try:
+            req = Request(url, headers={"User-Agent": USER_AGENT})
+            with urlopen(req, timeout=15) as resp:
+                return resp.read()
+        except HTTPError as e:
+            if e.code == 429 and attempt < WIKIMEDIA_429_MAX_RETRIES - 1:
+                logger.info(
+                    "Rate limited (429), waiting %ds before retry %d/%d",
+                    WIKIMEDIA_429_BACKOFF_SECONDS,
+                    attempt + 2,
+                    WIKIMEDIA_429_MAX_RETRIES,
+                )
+                time.sleep(WIKIMEDIA_429_BACKOFF_SECONDS)
+            else:
+                raise
 
 
 def fetch_pageviews_last_30_days(title: str) -> int:
@@ -306,18 +354,11 @@ def fetch_pageviews_last_30_days(title: str) -> int:
     start_str = start.strftime("%Y%m%d")
     end_str = end.strftime("%Y%m%d")
     title_decoded = unquote(title)
-    article_encoded = quote(
-        title_decoded.replace(" ", "_"), safe="-_.~()"
-    )
+    article_encoded = quote(title_decoded.replace(" ", "_"), safe="-_.~()")
     url = f"{PAGEVIEWS_BASE}/{article_encoded}/daily/{start_str}/{end_str}"
-    try:
-        req = Request(url, headers={"User-Agent": USER_AGENT})
-        with urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-        items = data.get("items") or []
-        return sum(item.get("views", 0) for item in items)
-    except Exception:
-        return 0
+    data = json.loads(_request_with_429_retry(url).decode())
+    items = data.get("items") or []
+    return sum(item.get("views", 0) for item in items)
 
 
 def fetch_backlink_count(title: str) -> int:
@@ -331,42 +372,146 @@ def fetch_backlink_count(title: str) -> int:
         "format": "json",
     }
     url = f"{WIKIPEDIA_API}?{urlencode(params)}"
-    try:
-        req = Request(url, headers={"User-Agent": USER_AGENT})
-        with urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-        bl = data.get("query", {}).get("backlinks") or []
-        return len(bl)
-    except Exception:
-        return 0
+    data = json.loads(_request_with_429_retry(url).decode())
+    bl = data.get("query", {}).get("backlinks") or []
+    return len(bl)
 
 
-def add_importance(events: list[dict]) -> None:
-    max_sitelinks = max((e.get("sitelink_count") or 0) for e in events) or 1
-    max_pageviews = 0
-    max_backlinks = 0
-    for e in events:
-        title = e.get("wikipedia_title")
-        if title:
-            pv = fetch_pageviews_last_30_days(title)
-            bl = fetch_backlink_count(title)
+class ImportanceScorer:
+    # Sitelinks: number of Wikimedia site articles (e.g. Wikipedia in various languages)
+    # linked to the Wikidata item. More sitelinks usually means broader coverage/notability.
+    # Backlinks: number of other Wikipedia articles that link to this article. More backlinks
+    # means the topic is referenced more often and is typically more notable.
+    # Events with very few sitelinks are down-weighted so obscure items with high pageviews
+    # or backlinks don't rank as historically significant.
+    WEIGHT_PAGEVIEWS = 1.0 / 2.0
+    WEIGHT_BACKLINKS = 3.0 / 8.0
+    WEIGHT_SITELINKS = 1.0 / 8.0
+    IMPORTANCE_SCORE_DECIMALS = 4
+    SITELINKS_MIN_THRESHOLD = 3
+    SITELINKS_LOW_MULTIPLIER = 0.5
+
+    def __init__(
+        self,
+        weight_sitelinks: float | None = None,
+        weight_pageviews: float | None = None,
+        weight_backlinks: float | None = None,
+        decimals: int | None = None,
+    ) -> None:
+        self.weight_sitelinks = (
+            weight_sitelinks if weight_sitelinks is not None else self.WEIGHT_SITELINKS
+        )
+        self.weight_pageviews = (
+            weight_pageviews if weight_pageviews is not None else self.WEIGHT_PAGEVIEWS
+        )
+        self.weight_backlinks = (
+            weight_backlinks if weight_backlinks is not None else self.WEIGHT_BACKLINKS
+        )
+        self.decimals = (
+            decimals if decimals is not None else self.IMPORTANCE_SCORE_DECIMALS
+        )
+
+    def add_importance(self, events: list[dict]) -> list[tuple[str, str, str]]:
+        with_title = sum(1 for e in events if e.get("wikipedia_title"))
+        logger.info(
+            "Computing importance: fetching pageviews and backlinks for %d events with Wikipedia title (of %d total)",
+            with_title,
+            len(events),
+        )
+        errors: list[tuple[str, str, str]] = []
+        good: list[dict] = []
+        total_events = len(events)
+        last_logged_pct = -1
+        for i, e in enumerate(events):
+            pct = (i + 1) * 100 // total_events if total_events else 0
+            if pct != last_logged_pct and pct % 10 == 0:
+                logger.info("Importance scoring: %d%% (%d/%d)", pct, i + 1, total_events)
+                last_logged_pct = pct
+            title = e.get("wikipedia_title")
+            if not title:
+                e["pageviews_30d"] = 0
+                e["backlink_count"] = 0
+                good.append(e)
+                continue
+            label_or_id = e.get("label") or e.get("wikidata_id") or "?"
+            try:
+                pv = fetch_pageviews_last_30_days(title)
+            except Exception as err:
+                errors.append((label_or_id, "pageviews", str(err)))
+                logger.warning(
+                    "Excluding %r: Wikimedia pageviews API failed: %s",
+                    label_or_id,
+                    err,
+                )
+                time.sleep(WIKIMEDIA_REQUEST_DELAY_SECONDS)
+                continue
+            time.sleep(WIKIMEDIA_REQUEST_DELAY_SECONDS)
+            try:
+                bl = fetch_backlink_count(title)
+            except Exception as err:
+                errors.append((label_or_id, "backlinks", str(err)))
+                logger.warning(
+                    "Excluding %r: Wikipedia backlinks API failed: %s",
+                    label_or_id,
+                    err,
+                )
+                time.sleep(WIKIMEDIA_REQUEST_DELAY_SECONDS)
+                continue
+            time.sleep(WIKIMEDIA_REQUEST_DELAY_SECONDS)
             e["pageviews_30d"] = pv
             e["backlink_count"] = bl
-            max_pageviews = max(max_pageviews, pv)
-            max_backlinks = max(max_backlinks, min(bl, BACKLINKS_LIMIT))
-        else:
-            e["pageviews_30d"] = 0
-            e["backlink_count"] = 0
-    max_pageviews = max_pageviews or 1
-    max_backlinks = max_backlinks or 1
-    for e in events:
-        s = (e.get("sitelink_count") or 0) / max_sitelinks
-        p = (e.get("pageviews_30d") or 0) / max_pageviews
-        b = min(e.get("backlink_count") or 0, BACKLINKS_LIMIT) / max_backlinks
-        e["importance_score"] = round((s + p + b) / 3, 4)
+            good.append(e)
+        sitelinks_vals = [(e.get("sitelink_count") or 0) for e in good]
+        pageviews_vals = [e.get("pageviews_30d") or 0 for e in good]
+        backlinks_vals = [
+            min(e.get("backlink_count") or 0, BACKLINKS_LIMIT) for e in good
+        ]
+        min_s, max_s = min(sitelinks_vals), max(sitelinks_vals)
+        min_pv, max_pv = min(pageviews_vals), max(pageviews_vals)
+        min_b, max_b = min(backlinks_vals), max(backlinks_vals)
+        min_log_pv = math.log1p(min_pv)
+        max_log_pv = math.log1p(max_pv)
+        range_s = max_s - min_s
+        range_log_pv = max_log_pv - min_log_pv
+        range_b = max_b - min_b
+
+        def scale(x: float, lo: float, range_val: float) -> float:
+            if range_val <= 0:
+                return 0.0
+            return (x - lo) / range_val
+
+        for e in good:
+            s = scale((e.get("sitelink_count") or 0), min_s, range_s)
+            pv_raw = e.get("pageviews_30d") or 0
+            p = scale(math.log1p(pv_raw), min_log_pv, range_log_pv)
+            b = scale(
+                min(e.get("backlink_count") or 0, BACKLINKS_LIMIT), min_b, range_b
+            )
+            score = (
+                self.weight_sitelinks * s
+                + self.weight_pageviews * p
+                + self.weight_backlinks * b
+            )
+            sitelink_count = e.get("sitelink_count") or 0
+            if sitelink_count < self.SITELINKS_MIN_THRESHOLD:
+                score *= self.SITELINKS_LOW_MULTIPLIER
+            e["importance_score"] = round(score, self.decimals)
+        events.clear()
+        events.extend(good)
+        logger.info(
+            "Importance computed: %d events scored, %d excluded due to fetch errors",
+            len(good),
+            len(errors),
+        )
+        return errors
+
+
+def add_importance(events: list[dict]) -> list[tuple[str, str, str]]:
+    return ImportanceScorer().add_importance(events)
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     parser = argparse.ArgumentParser(
         description="Fetch WWII events from Wikidata (date, location, description, Wikipedia link)."
     )
@@ -394,14 +539,21 @@ def main() -> None:
         help="Output as JSON.",
     )
     args = parser.parse_args()
+    logger.info(
+        "Run parameters: start_year=%s, end_year=%s, limit=%d",
+        args.start_year,
+        args.end_year,
+        args.limit,
+    )
 
     events = run_query(
         start_year=args.start_year,
         end_year=args.end_year,
         limit=args.limit,
     )
-    add_importance(events)
+    errors = add_importance(events)
 
+    logger.info("Outputting %d events", len(events))
     if args.json:
         print(json.dumps(events, indent=2))
     else:
@@ -424,6 +576,15 @@ def main() -> None:
                 f"backlinks={e['backlink_count']})"
             )
             print()
+
+    if errors:
+        print(
+            "Events excluded due to fetch errors (Wikimedia pageviews / Wikipedia backlinks APIs; 429 = rate limit):",
+            file=sys.stderr,
+        )
+        for label_or_id, fetch_type, msg in errors:
+            print(f"  {label_or_id} ({fetch_type}): {msg}", file=sys.stderr)
+        sys.stderr.flush()
 
 
 if __name__ == "__main__":
