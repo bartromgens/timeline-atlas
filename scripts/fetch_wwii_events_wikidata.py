@@ -135,6 +135,45 @@ def execute_sparql_with_retry(
     raise last_exc
 
 
+def fetch_location_coordinates(
+    sparql: SPARQLWrapper, location_qids: list[str]
+) -> dict[str, tuple[float, float]]:
+    if not location_qids:
+        return {}
+    result: dict[str, tuple[float, float]] = {}
+    batch_size = 50
+    for i in range(0, len(location_qids), batch_size):
+        batch = location_qids[i : i + batch_size]
+        values = " ".join(f"wd:{q}" for q in batch)
+        query = f"""
+        PREFIX wd: <http://www.wikidata.org/entity/>
+        PREFIX p: <http://www.wikidata.org/prop/>
+        PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
+        PREFIX wikibase: <http://wikiba.se/ontology#>
+        SELECT ?location ?lat ?lon
+        WHERE {{
+          VALUES ?location {{ {values} }}
+          ?location p:P625/psv:P625 [
+            wikibase:geoLatitude ?lat ;
+            wikibase:geoLongitude ?lon
+          ] .
+        }}
+        """
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        raw = execute_sparql_with_retry(sparql)
+        for b in raw.get("results", {}).get("bindings", []):
+            qid = extract_wikidata_id(b.get("location", {}).get("value", ""))
+            lat_s = b.get("lat", {}).get("value")
+            lon_s = b.get("lon", {}).get("value")
+            if qid and lat_s is not None and lon_s is not None:
+                try:
+                    result[qid] = (float(lat_s), float(lon_s))
+                except (ValueError, TypeError):
+                    pass
+    return result
+
+
 def fetch_sitelink_counts(sparql: SPARQLWrapper, qids: list[str]) -> dict[str, int]:
     if not qids:
         return {}
@@ -275,6 +314,7 @@ def run_query(
         r0 = qid_rows[0]
         article_val = get_val(r0, "article")
         wikidata_url = f"https://www.wikidata.org/wiki/{qid}" if qid else None
+        location_qid = extract_wikidata_id(get_val(r0, "location") or "")
         events.append(
             {
                 "wikidata_id": qid or None,
@@ -285,10 +325,20 @@ def run_query(
                 "start_time": start_time,
                 "end_time": end_time,
                 "location": get_val(r0, "locationLabel"),
+                "location_qid": location_qid or None,
+                "location_lat": None,
+                "location_lon": None,
                 "wikipedia_url": article_val,
                 "wikipedia_title": extract_wikipedia_title(article_val or ""),
             }
         )
+    location_qids = list({e["location_qid"] for e in events if e.get("location_qid")})
+    logger.info("Fetching coordinates for %d location(s)", len(location_qids))
+    coords = fetch_location_coordinates(sparql, location_qids)
+    for e in events:
+        lqid = e.get("location_qid")
+        if lqid and lqid in coords:
+            e["location_lat"], e["location_lon"] = coords[lqid]
     qids = [e["wikidata_id"] for e in events if e.get("wikidata_id")]
     logger.info("Fetching sitelink counts for %d items", len(qids))
     sitelink_counts = fetch_sitelink_counts(sparql, qids)
@@ -574,7 +624,10 @@ def main() -> None:
             st_s = f"{st['value']} ({st['resolution']})" if st else "None"
             et_s = f"{et['value']} ({et['resolution']})" if et else "None"
             print(f"  point_in_time: {pt_s}  start_time: {st_s}  end_time: {et_s}")
-            print(f"  location: {e['location']}")
+            loc_coord = ""
+            if e.get("location_lat") is not None and e.get("location_lon") is not None:
+                loc_coord = f" ({e['location_lat']}, {e['location_lon']})"
+            print(f"  location: {e['location']}{loc_coord}")
             print(f"  description: {e['description']}")
             print(f"  wikidata: {e['wikidata_url']}")
             print(f"  wikipedia: {e['wikipedia_url']}")
