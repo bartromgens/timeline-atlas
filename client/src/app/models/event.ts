@@ -45,7 +45,14 @@ export function parseEventTime(time: EventTimeValue | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function hasStartAndEnd(event: EventApi): boolean {
+  return !!(event.start_time?.value && event.end_time?.value);
+}
+
 export function eventStartDate(event: EventApi): Date | null {
+  if (hasStartAndEnd(event)) {
+    return parseEventTime(event.start_time);
+  }
   return (
     parseEventTime(event.start_time) ??
     parseEventTime(event.point_in_time) ??
@@ -54,6 +61,9 @@ export function eventStartDate(event: EventApi): Date | null {
 }
 
 export function eventEndDate(event: EventApi): Date | null {
+  if (hasStartAndEnd(event)) {
+    return parseEventTime(event.end_time);
+  }
   return (
     parseEventTime(event.end_time) ??
     parseEventTime(event.point_in_time) ??

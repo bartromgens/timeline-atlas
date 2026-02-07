@@ -46,7 +46,8 @@ function centerOfMass(
   for (const e of withCoords) {
     const lat = e.location_lat as number;
     const lon = e.location_lon as number;
-    const m = e.importance_score != null && Number.isFinite(e.importance_score) ? e.importance_score : 0;
+    const m =
+      e.importance_score != null && Number.isFinite(e.importance_score) ? e.importance_score : 0;
     sumLat += lat * m;
     sumLon += lon * m;
     totalMass += m;
