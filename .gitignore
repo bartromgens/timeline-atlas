@@ -55,6 +55,9 @@ client/.cache
 # IDE and editors
 .idea/
 .vscode/
+
+# Cursor (local setup)
+.cursor/rules/python-environment.mdc
 *.swp
 *.swo
 *~

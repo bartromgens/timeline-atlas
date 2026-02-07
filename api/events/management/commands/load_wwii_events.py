@@ -7,9 +7,15 @@ from api.events.wikidata import EventLoader
 
 
 class Command(BaseCommand):
-    help = "Extract WWII events from Wikidata and load them into the database."
+    help = "Extract events from a Wikidata category and load them into the database."
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "category_qid",
+            nargs="?",
+            default="Q362",
+            help="Wikidata QID of the category (e.g. Q362 for World War II). Default: Q362.",
+        )
         parser.add_argument(
             "--start-year",
             type=int,
@@ -41,6 +47,7 @@ class Command(BaseCommand):
         )
         loader = EventLoader()
         created, updated, errors = loader.load(
+            category_qid=options["category_qid"],
             start_year=options["start_year"],
             end_year=options["end_year"],
             limit=options["limit"],

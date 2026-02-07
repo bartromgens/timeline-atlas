@@ -8,7 +8,6 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 logger = logging.getLogger(__name__)
 
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
-WWII_QID = "Q362"
 MAX_RETRIES = 3
 DEFAULT_RETRY_SECONDS = 60
 
@@ -94,6 +93,7 @@ class WikidataSparqlClient:
 
     def _build_query(
         self,
+        category_qid: str,
         start_year: int | None,
         end_year: int | None,
         limit: int,
@@ -131,7 +131,7 @@ PREFIX wikibase: <http://wikiba.se/ontology#>
 
 SELECT DISTINCT ?item ?itemLabel ?itemDescription ?point_in_time ?start_time ?end_time ?point_in_time_precision ?start_time_precision ?end_time_precision ?point_in_time_q ?start_time_q ?end_time_q ?location ?locationLabel ?article
 WHERE {{
-  ?item wdt:P361* wd:{WWII_QID} .
+  ?item wdt:P361* wd:{category_qid} .
   OPTIONAL {{ ?item p:P585/psv:P585 [wikibase:timeValue ?point_in_time; wikibase:timePrecision ?point_in_time_precision] . }}
   OPTIONAL {{ ?item p:P580/psv:P580 [wikibase:timeValue ?start_time; wikibase:timePrecision ?start_time_precision] . }}
   OPTIONAL {{ ?item p:P582/psv:P582 [wikibase:timeValue ?end_time; wikibase:timePrecision ?end_time_precision] . }}
@@ -191,6 +191,88 @@ LIMIT {limit}
                 else:
                     raise
         raise last_exc  # type: ignore[misc]
+
+    def fetch_item_label(self, qid: str) -> str | None:
+        if not qid or not re.match(r"^Q\d+$", qid):
+            return None
+        sparql = SPARQLWrapper(self.endpoint)
+        query = f"""
+        PREFIX wd: <http://www.wikidata.org/entity/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT ?label
+        WHERE {{
+          wd:{qid} rdfs:label ?label .
+          FILTER(LANG(?label) = "en")
+        }}
+        LIMIT 1
+        """
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        raw = self._execute(sparql)
+        bindings = raw.get("results", {}).get("bindings", [])
+        if bindings and bindings[0].get("label", {}).get("value"):
+            return bindings[0]["label"]["value"]
+        return None
+
+    def fetch_category_properties(
+        self, qid: str
+    ) -> dict[str, str | list[dict[str, str]]]:
+        if not qid or not re.match(r"^Q\d+$", qid):
+            return {"label": "", "instance_of": [], "subclass_of": []}
+        sparql = SPARQLWrapper(self.endpoint)
+        query = f"""
+        PREFIX wd: <http://www.wikidata.org/entity/>
+        PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        SELECT ?label ?p31 ?p31Label ?p279 ?p279Label
+        WHERE {{
+          wd:{qid} rdfs:label ?label .
+          FILTER(LANG(?label) = "en")
+          OPTIONAL {{
+            wd:{qid} wdt:P31 ?p31 .
+            ?p31 rdfs:label ?p31Label .
+            FILTER(LANG(?p31Label) = "en")
+          }}
+          OPTIONAL {{
+            wd:{qid} wdt:P279 ?p279 .
+            ?p279 rdfs:label ?p279Label .
+            FILTER(LANG(?p279Label) = "en")
+          }}
+        }}
+        """
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        raw = self._execute(sparql)
+        bindings = raw.get("results", {}).get("bindings", [])
+        label = ""
+        instance_of: list[dict[str, str]] = []
+        subclass_of: list[dict[str, str]] = []
+        seen_p31: set[str] = set()
+        seen_p279: set[str] = set()
+        for b in bindings:
+            if not label and b.get("label", {}).get("value"):
+                label = b["label"]["value"]
+            p31_val = b.get("p31", {}).get("value", "")
+            p31_qid = extract_wikidata_id(p31_val)
+            if p31_qid and p31_qid not in seen_p31:
+                seen_p31.add(p31_qid)
+                instance_of.append(
+                    {
+                        "qid": p31_qid,
+                        "label": b.get("p31Label", {}).get("value", ""),
+                    }
+                )
+            p279_val = b.get("p279", {}).get("value", "")
+            p279_qid = extract_wikidata_id(p279_val)
+            if p279_qid and p279_qid not in seen_p279:
+                seen_p279.add(p279_qid)
+                subclass_of.append(
+                    {
+                        "qid": p279_qid,
+                        "label": b.get("p279Label", {}).get("value", ""),
+                    }
+                )
+        return {"label": label, "instance_of": instance_of, "subclass_of": subclass_of}
 
     def fetch_location_coordinates(
         self,
@@ -259,20 +341,82 @@ LIMIT {limit}
                     result[qid] = result.get(qid, 0) + 1
         return result
 
+    def fetch_events_part_of(
+        self, event_qids: list[str], batch_size: int = 50
+    ) -> dict[str, list[str]]:
+        if not event_qids:
+            return {}
+        result: dict[str, list[str]] = {qid: [] for qid in event_qids}
+        valid_qids = [q for q in event_qids if q and re.match(r"^Q\d+$", q)]
+        for i in range(0, len(valid_qids), batch_size):
+            batch = valid_qids[i : i + batch_size]
+            values = " ".join(f"wd:{q}" for q in batch)
+            direct: dict[str, list[str]] = {q: [] for q in batch}
+            sparql = SPARQLWrapper(self.endpoint)
+            query_direct = f"""
+            PREFIX wd: <http://www.wikidata.org/entity/>
+            PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+            SELECT ?item ?cat
+            WHERE {{
+              VALUES ?item {{ {values} }}
+              ?item wdt:P361 ?cat .
+            }}
+            """
+            sparql.setQuery(query_direct)
+            sparql.setReturnFormat(JSON)
+            raw = self._execute(sparql)
+            for b in raw.get("results", {}).get("bindings", []):
+                item_qid = extract_wikidata_id(b.get("item", {}).get("value", ""))
+                cat_qid = extract_wikidata_id(b.get("cat", {}).get("value", ""))
+                if item_qid and cat_qid and cat_qid not in direct.get(item_qid, []):
+                    direct[item_qid].append(cat_qid)
+
+            transitive: dict[str, list[str]] = {q: [] for q in batch}
+            query_transitive = f"""
+            PREFIX wd: <http://www.wikidata.org/entity/>
+            PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+            SELECT ?item ?cat
+            WHERE {{
+              VALUES ?item {{ {values} }}
+              ?item wdt:P361* ?cat .
+            }}
+            """
+            sparql.setQuery(query_transitive)
+            raw = self._execute(sparql)
+            for b in raw.get("results", {}).get("bindings", []):
+                item_qid = extract_wikidata_id(b.get("item", {}).get("value", ""))
+                cat_qid = extract_wikidata_id(b.get("cat", {}).get("value", ""))
+                if (
+                    item_qid
+                    and cat_qid
+                    and cat_qid != item_qid
+                    and cat_qid not in transitive.get(item_qid, [])
+                ):
+                    transitive[item_qid].append(cat_qid)
+
+            for qid in batch:
+                direct_list = direct.get(qid, [])
+                direct_set = set(direct_list)
+                rest = [c for c in transitive.get(qid, []) if c not in direct_set]
+                result[qid] = direct_list + rest
+        return result
+
     def run_query(
         self,
+        category_qid: str,
         start_year: int | None = None,
         end_year: int | None = None,
         limit: int = 50,
     ) -> list[dict]:
         logger.info(
-            "Querying Wikidata (start_year=%s, end_year=%s, limit=%d)",
+            "Querying Wikidata (category=%s, start_year=%s, end_year=%s, limit=%d)",
+            category_qid,
             start_year,
             end_year,
             limit,
         )
         sparql = SPARQLWrapper(self.endpoint)
-        sparql.setQuery(self._build_query(start_year, end_year, limit))
+        sparql.setQuery(self._build_query(category_qid, start_year, end_year, limit))
         sparql.setReturnFormat(JSON)
         raw = self._execute(sparql)
 

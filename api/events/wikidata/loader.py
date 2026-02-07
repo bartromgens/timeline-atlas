@@ -4,14 +4,17 @@ from typing import Any
 from django.db import transaction
 
 from api.events.importance import get_scorer
-from api.events.models import Event
+from api.events.models import Category, Event
 from api.events.wikidata.pageviews_backlinks import PageviewsBacklinksFetcher
 from api.events.wikidata.sparql import WikidataSparqlClient
 
 logger = logging.getLogger(__name__)
 
 
-def _event_dict_to_model_data(data: dict[str, Any]) -> dict[str, Any]:
+def _event_dict_to_model_data(
+    data: dict[str, Any],
+    category: Category | None = None,
+) -> dict[str, Any]:
     sort_date = (data.get("_sort_date") or "")[:32]
     sitelink_count = data.get("sitelink_count") or 0
     pageviews_30d = data.get("pageviews_30d") or 0
@@ -20,6 +23,7 @@ def _event_dict_to_model_data(data: dict[str, Any]) -> dict[str, Any]:
         sitelink_count, pageviews_30d, backlink_count
     )
     return {
+        "category": category,
         "title": (data.get("label") or "")[:500],
         "description": (data.get("description") or "")[:50000],
         "point_in_time": data.get("point_in_time"),
@@ -52,12 +56,33 @@ class EventLoader:
 
     def load(
         self,
+        category_qid: str,
         start_year: int | None = None,
         end_year: int | None = None,
         limit: int = 50,
         fetch_pageviews_backlinks: bool = True,
     ) -> tuple[int, int, list[tuple[str, str, str]]]:
+        props = self.sparql_client.fetch_category_properties(category_qid)
+        category_name = (props.get("label") or "")[:500]
+        if category_name:
+            logger.info(
+                "Category %s: %s (instance_of=%d, subclass_of=%d)",
+                category_qid,
+                category_name,
+                len(props.get("instance_of") or []),
+                len(props.get("subclass_of") or []),
+            )
+        category_obj, _ = Category.objects.update_or_create(
+            wikidata_id=category_qid,
+            defaults={
+                "name": category_name,
+                "wikidata_url": f"https://www.wikidata.org/wiki/{category_qid}",
+                "instance_of": props.get("instance_of") or [],
+                "subclass_of": props.get("subclass_of") or [],
+            },
+        )
         events_data = self.sparql_client.run_query(
+            category_qid=category_qid,
             start_year=start_year,
             end_year=end_year,
             limit=limit,
@@ -111,7 +136,7 @@ class EventLoader:
                 qid = data.get("wikidata_id")
                 if not qid:
                     continue
-                payload = _event_dict_to_model_data(data)
+                payload = _event_dict_to_model_data(data, category=category_obj)
                 obj, was_created = Event.objects.update_or_create(
                     wikidata_id=qid,
                     defaults=payload,

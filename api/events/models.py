@@ -3,6 +3,20 @@ from __future__ import annotations
 from django.db import models
 
 
+class Category(models.Model):
+    name = models.CharField(max_length=500, blank=True)
+    wikidata_id = models.CharField(max_length=20, unique=True)
+    wikidata_url = models.URLField(max_length=500, blank=True)
+    instance_of = models.JSONField(default=list, blank=True)
+    subclass_of = models.JSONField(default=list, blank=True)
+
+    def __str__(self) -> str:
+        return self.name or self.wikidata_id
+
+    class Meta:
+        verbose_name_plural = "categories"
+
+
 class EventQuerySet(models.QuerySet["Event"]):
     def in_date_range(
         self,
@@ -23,6 +37,13 @@ class EventManager(models.Manager["Event"]):
 
 
 class Event(models.Model):
+    category = models.ForeignKey(
+        Category,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="events",
+    )
     title = models.CharField(max_length=500, blank=True)
     description = models.TextField(blank=True)
 
