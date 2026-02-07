@@ -2,11 +2,16 @@
 URL routing for events API.
 """
 
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
+from api.events.views import EventViewSet
+
+router = DefaultRouter()
+router.register(r"events", EventViewSet, basename="event")
 
 app_name = "events"
 
 urlpatterns = [
-    # GET /api/events/  -> add EventList view
-    # GET /api/events/<id>/  -> add EventDetail view
+    path("", include(router.urls)),
 ]

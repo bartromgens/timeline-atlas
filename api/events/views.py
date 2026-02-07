@@ -1,5 +1,10 @@
-"""
-Events API views.
-"""
+from rest_framework import viewsets
 
-# Add EventList, EventDetail (ViewSet or APIView) when Event model exists
+from api.events.models import Event
+from api.events.serializers import EventSerializer
+
+
+class EventViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Event.objects.all()
+    serializer_class = EventSerializer
+    permission_classes = []
