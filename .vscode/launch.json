@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/manage.py",
+      "args": ["runserver"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/env/bin/python",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Angular (ng serve)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve"],
+      "cwd": "${workspaceFolder}/client",
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Django + Angular",
+      "configurations": ["Django", "Angular (ng serve)"]
+    }
+  ]
+}

@@ -54,7 +54,10 @@ client/.cache
 
 # IDE and editors
 .idea/
-.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/settings.json
 
 # Cursor (local setup)
 .cursor/rules/python-environment.mdc
