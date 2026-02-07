@@ -14,11 +14,30 @@ import type { EventApi } from '../models/event';
 const MIN_RADIUS_PX = 2;
 const MAX_RADIUS_PX = 18;
 
+const CATEGORY_COLORS = [
+  '#1976d2', // blue
+  '#c62828', // red
+  '#2e7d32', // green
+  '#f9a825', // amber
+  '#6a1b9a', // purple
+  '#00838f', // cyan dark
+  '#d84315', // deep orange
+  '#283593', // indigo
+  '#558b2f', // light green
+  '#ad1457', // pink
+];
+
 function radiusFromImportance(importance: number | null, dataMin: number, dataMax: number): number {
   const score = importance ?? dataMin;
   const range = dataMax - dataMin;
   const normalized = range <= 0 ? 1 : Math.max(0, Math.min(1, (score - dataMin) / range));
   return MIN_RADIUS_PX + normalized * (MAX_RADIUS_PX - MIN_RADIUS_PX);
+}
+
+function colorForCategory(categoryId: number | null): string {
+  if (categoryId == null) return '#757575';
+  const index = Math.abs(categoryId) % CATEGORY_COLORS.length;
+  return CATEGORY_COLORS[index];
 }
 
 @Component({
@@ -79,10 +98,11 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
       const lon = event.location_lon as number;
       const radius = radiusFromImportance(event.importance_score, dataMin, dataMax);
 
+      const color = colorForCategory(event.category_id);
       const circle = L.circleMarker([lat, lon], {
         radius,
-        color: '#1976d2',
-        fillColor: '#1976d2',
+        color,
+        fillColor: color,
         fillOpacity: 0.25,
         weight: 1.5,
       });

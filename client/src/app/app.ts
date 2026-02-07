@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, DestroyRef, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
@@ -25,6 +25,7 @@ export class App implements OnInit {
   constructor(
     private eventsService: EventsService,
     private destroyRef: DestroyRef,
+    private cdr: ChangeDetectorRef,
   ) {
     this.categories$ = this.eventsService.getCategories();
   }
@@ -52,10 +53,16 @@ export class App implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (events) => {
-          if (requestId === this.loadRequestId) this.events = events;
+          if (requestId === this.loadRequestId) {
+            this.events = events;
+            this.cdr.detectChanges();
+          }
         },
         error: () => {
-          if (requestId === this.loadRequestId) this.events = [];
+          if (requestId === this.loadRequestId) {
+            this.events = [];
+            this.cdr.detectChanges();
+          }
         },
       });
   }

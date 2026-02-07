@@ -85,7 +85,7 @@ class EventAdmin(admin.ModelAdmin):
         "backlink_count",
     ]
     list_display_links = ["wikidata_id"]
-    list_filter = [HasCoordsFilter]
+    list_filter = ["category", HasCoordsFilter]
     list_per_page = 50
     search_fields = [
         "title",
