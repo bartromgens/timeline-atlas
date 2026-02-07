@@ -42,6 +42,7 @@ class EventAdmin(admin.ModelAdmin):
         "date_start_end",
         "location_name",
         "has_coords",
+        "importance_score",
         "sitelink_count",
         "pageviews_30d",
         "backlink_count",
@@ -58,6 +59,7 @@ class EventAdmin(admin.ModelAdmin):
         "point_in_time",
         "start_time",
         "end_time",
+        "importance_score",
     ]
 
     fieldsets = (
@@ -70,7 +72,14 @@ class EventAdmin(admin.ModelAdmin):
         ),
         (
             "Location",
-            {"fields": ("location_name", "location_qid", "location_lat", "location_lon")},
+            {
+                "fields": (
+                    "location_name",
+                    "location_qid",
+                    "location_lat",
+                    "location_lon",
+                )
+            },
         ),
         (
             "Wikipedia",
@@ -78,7 +87,14 @@ class EventAdmin(admin.ModelAdmin):
         ),
         (
             "Metrics",
-            {"fields": ("sitelink_count", "pageviews_30d", "backlink_count")},
+            {
+                "fields": (
+                    "sitelink_count",
+                    "pageviews_30d",
+                    "backlink_count",
+                    "importance_score",
+                )
+            },
         ),
     )
 

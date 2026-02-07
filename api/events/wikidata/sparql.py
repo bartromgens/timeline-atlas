@@ -44,11 +44,7 @@ def sortable_date(d: dict | None) -> str:
     if res == "year":
         return v + "-01-01T00:00:00Z"
     if res == "month":
-        return (
-            v + "-01T00:00:00Z"
-            if len(v) >= 7
-            else v + "-01-01T00:00:00Z"
-        )
+        return v + "-01T00:00:00Z" if len(v) >= 7 else v + "-01-01T00:00:00Z"
     return v if "T" in v else v + "T00:00:00Z"
 
 
@@ -369,9 +365,7 @@ LIMIT {limit}
         logger.info("Fetching sitelink counts for %d items", len(qids))
         sitelink_counts = self.fetch_sitelink_counts(qids)
         for e in events:
-            e["sitelink_count"] = sitelink_counts.get(
-                e.get("wikidata_id") or "", 0
-            )
+            e["sitelink_count"] = sitelink_counts.get(e.get("wikidata_id") or "", 0)
 
         events.sort(
             key=lambda e: (

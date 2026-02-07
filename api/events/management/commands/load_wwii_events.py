@@ -47,16 +47,10 @@ class Command(BaseCommand):
             fetch_pageviews_backlinks=not options["no_pageviews"],
         )
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Loaded: {created} created, {updated} updated."
-            )
+            self.style.SUCCESS(f"Loaded: {created} created, {updated} updated.")
         )
         if errors:
-            self.stderr.write(
-                "Events with fetch errors (pageviews/backlinks):\n"
-            )
+            self.stderr.write("Events with fetch errors (pageviews/backlinks):\n")
             for label_or_id, fetch_type, msg in errors:
-                self.stderr.write(
-                    f"  {label_or_id} ({fetch_type}): {msg}\n"
-                )
+                self.stderr.write(f"  {label_or_id} ({fetch_type}): {msg}\n")
             sys.stderr.flush()

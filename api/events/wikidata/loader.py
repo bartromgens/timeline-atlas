@@ -3,6 +3,7 @@ from typing import Any
 
 from django.db import transaction
 
+from api.events.importance import get_scorer
 from api.events.models import Event
 from api.events.wikidata.pageviews_backlinks import PageviewsBacklinksFetcher
 from api.events.wikidata.sparql import WikidataSparqlClient
@@ -12,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 def _event_dict_to_model_data(data: dict[str, Any]) -> dict[str, Any]:
     sort_date = (data.get("_sort_date") or "")[:32]
+    sitelink_count = data.get("sitelink_count") or 0
+    pageviews_30d = data.get("pageviews_30d") or 0
+    backlink_count = data.get("backlink_count") or 0
+    importance_score = get_scorer().score_from_values(
+        sitelink_count, pageviews_30d, backlink_count
+    )
     return {
         "title": (data.get("label") or "")[:500],
         "description": (data.get("description") or "")[:50000],
@@ -26,10 +33,11 @@ def _event_dict_to_model_data(data: dict[str, Any]) -> dict[str, Any]:
         "wikidata_url": (data.get("wikidata_url") or "")[:500],
         "wikipedia_url": (data.get("wikipedia_url") or "")[:500],
         "wikipedia_title": (data.get("wikipedia_title") or "")[:500],
-        "sitelink_count": data.get("sitelink_count") or 0,
-        "pageviews_30d": data.get("pageviews_30d") or 0,
-        "backlink_count": data.get("backlink_count") or 0,
+        "sitelink_count": sitelink_count,
+        "pageviews_30d": pageviews_30d,
+        "backlink_count": backlink_count,
         "sort_date": sort_date,
+        "importance_score": importance_score,
     }
 
 
@@ -59,9 +67,7 @@ class EventLoader:
         last_logged_pct = -1
 
         if fetch_pageviews_backlinks:
-            with_title = sum(
-                1 for e in events_data if e.get("wikipedia_title")
-            )
+            with_title = sum(1 for e in events_data if e.get("wikipedia_title"))
             logger.info(
                 "Fetching pageviews and backlinks for %d events with "
                 "Wikipedia title (of %d total)",

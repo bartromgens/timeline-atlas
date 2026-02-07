@@ -25,5 +25,6 @@ class EventSerializer(serializers.ModelSerializer):
             "pageviews_30d",
             "backlink_count",
             "sort_date",
+            "importance_score",
         ]
         read_only_fields = fields

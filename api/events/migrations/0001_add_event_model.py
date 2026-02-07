@@ -7,34 +7,44 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Event',
+            name="Event",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(blank=True, max_length=500)),
-                ('description', models.TextField(blank=True)),
-                ('point_in_time', models.JSONField(blank=True, null=True)),
-                ('start_time', models.JSONField(blank=True, null=True)),
-                ('end_time', models.JSONField(blank=True, null=True)),
-                ('location_name', models.CharField(blank=True, max_length=500)),
-                ('location_qid', models.CharField(blank=True, max_length=20)),
-                ('location_lat', models.FloatField(blank=True, null=True)),
-                ('location_lon', models.FloatField(blank=True, null=True)),
-                ('wikidata_id', models.CharField(max_length=20, unique=True)),
-                ('wikidata_url', models.URLField(blank=True, max_length=500)),
-                ('wikipedia_url', models.URLField(blank=True, max_length=500)),
-                ('wikipedia_title', models.CharField(blank=True, max_length=500)),
-                ('sitelink_count', models.PositiveIntegerField(default=0)),
-                ('pageviews_30d', models.PositiveIntegerField(default=0)),
-                ('backlink_count', models.PositiveIntegerField(default=0)),
-                ('sort_date', models.CharField(blank=True, db_index=True, max_length=32)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(blank=True, max_length=500)),
+                ("description", models.TextField(blank=True)),
+                ("point_in_time", models.JSONField(blank=True, null=True)),
+                ("start_time", models.JSONField(blank=True, null=True)),
+                ("end_time", models.JSONField(blank=True, null=True)),
+                ("location_name", models.CharField(blank=True, max_length=500)),
+                ("location_qid", models.CharField(blank=True, max_length=20)),
+                ("location_lat", models.FloatField(blank=True, null=True)),
+                ("location_lon", models.FloatField(blank=True, null=True)),
+                ("wikidata_id", models.CharField(max_length=20, unique=True)),
+                ("wikidata_url", models.URLField(blank=True, max_length=500)),
+                ("wikipedia_url", models.URLField(blank=True, max_length=500)),
+                ("wikipedia_title", models.CharField(blank=True, max_length=500)),
+                ("sitelink_count", models.PositiveIntegerField(default=0)),
+                ("pageviews_30d", models.PositiveIntegerField(default=0)),
+                ("backlink_count", models.PositiveIntegerField(default=0)),
+                (
+                    "sort_date",
+                    models.CharField(blank=True, db_index=True, max_length=32),
+                ),
             ],
             options={
-                'ordering': ['sort_date', 'wikidata_id'],
+                "ordering": ["sort_date", "wikidata_id"],
             },
         ),
     ]

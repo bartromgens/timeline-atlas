@@ -45,6 +45,7 @@ class Event(models.Model):
     backlink_count = models.PositiveIntegerField(default=0)
 
     sort_date = models.CharField(max_length=32, blank=True, db_index=True)
+    importance_score = models.FloatField(null=True, blank=True, db_index=True)
 
     objects = EventManager()
 
