@@ -9,23 +9,14 @@ import {
   ViewChild,
 } from '@angular/core';
 import * as L from 'leaflet';
+import { colorForCategory } from '../models/category-colors';
 import type { EventApi } from '../models/event';
 
 const MIN_RADIUS_PX = 2;
 const MAX_RADIUS_PX = 18;
-
-const CATEGORY_COLORS = [
-  '#1976d2', // blue
-  '#c62828', // red
-  '#2e7d32', // green
-  '#f9a825', // amber
-  '#6a1b9a', // purple
-  '#00838f', // cyan dark
-  '#d84315', // deep orange
-  '#283593', // indigo
-  '#558b2f', // light green
-  '#ad1457', // pink
-];
+const FIT_PADDING_PX = 40;
+const FIT_MIN_ZOOM = 4;
+const FIT_MAX_ZOOM = 7;
 
 function radiusFromImportance(importance: number | null, dataMin: number, dataMax: number): number {
   const score = importance ?? dataMin;
@@ -34,10 +25,38 @@ function radiusFromImportance(importance: number | null, dataMin: number, dataMa
   return MIN_RADIUS_PX + normalized * (MAX_RADIUS_PX - MIN_RADIUS_PX);
 }
 
-function colorForCategory(categoryId: number | null): string {
-  if (categoryId == null) return '#757575';
-  const index = Math.abs(categoryId) % CATEGORY_COLORS.length;
-  return CATEGORY_COLORS[index];
+function centerOfMass(
+  events: Array<{
+    location_lat: number | null;
+    location_lon: number | null;
+    importance_score: number | null;
+  }>,
+): L.LatLngTuple | null {
+  const withCoords = events.filter(
+    (e) =>
+      e.location_lat != null &&
+      e.location_lon != null &&
+      Number.isFinite(e.location_lat) &&
+      Number.isFinite(e.location_lon),
+  );
+  if (withCoords.length === 0) return null;
+  let sumLat = 0;
+  let sumLon = 0;
+  let totalMass = 0;
+  for (const e of withCoords) {
+    const lat = e.location_lat as number;
+    const lon = e.location_lon as number;
+    const m = e.importance_score != null && Number.isFinite(e.importance_score) ? e.importance_score : 0;
+    sumLat += lat * m;
+    sumLon += lon * m;
+    totalMass += m;
+  }
+  if (totalMass <= 0) {
+    sumLat = withCoords.reduce((s, e) => s + (e.location_lat as number), 0);
+    sumLon = withCoords.reduce((s, e) => s + (e.location_lon as number), 0);
+    return [sumLat / withCoords.length, sumLon / withCoords.length];
+  }
+  return [sumLat / totalMass, sumLon / totalMass];
 }
 
 @Component({
@@ -111,6 +130,35 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         direction: 'top',
       });
       this.circlesLayer!.addLayer(circle);
+    }
+
+    if (withLocation.length > 0 && this.map) {
+      const latLngs = withLocation.map(
+        (e) => [e.location_lat as number, e.location_lon as number] as L.LatLngTuple,
+      );
+      let bounds = L.latLngBounds(latLngs);
+      if (withLocation.length === 1) {
+        const pad = 0.01;
+        bounds = L.latLngBounds(
+          [latLngs[0][0] - pad, latLngs[0][1] - pad],
+          [latLngs[0][0] + pad, latLngs[0][1] + pad],
+        );
+      }
+      if (bounds.isValid()) {
+        this.map.fitBounds(bounds, {
+          padding: [FIT_PADDING_PX, FIT_PADDING_PX],
+          maxZoom: FIT_MAX_ZOOM,
+        });
+        let zoom = this.map.getZoom();
+        if (zoom < FIT_MIN_ZOOM) {
+          this.map.setZoom(FIT_MIN_ZOOM);
+          zoom = FIT_MIN_ZOOM;
+        }
+        const center = centerOfMass(withLocation);
+        if (center) {
+          this.map.setView(center, zoom);
+        }
+      }
     }
   }
 
