@@ -35,15 +35,14 @@ export class App implements OnInit {
   ngOnInit(): void {
     const categoryParam = this.route.snapshot.queryParamMap.get('category');
     if (categoryParam != null && categoryParam !== '') {
-      this.selectedCategoryValue = decodeURIComponent(categoryParam);
+      this.selectedCategoryValue = categoryParam;
     }
     this.loadEvents(this.selectedCategoryIdFromValue());
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const categoryParam = params.get('category');
       if (categoryParam != null && categoryParam !== '') {
-        const decoded = decodeURIComponent(categoryParam);
-        if (decoded !== this.selectedCategoryValue) {
-          this.selectedCategoryValue = decoded;
+        if (categoryParam !== this.selectedCategoryValue) {
+          this.selectedCategoryValue = categoryParam;
           this.loadEvents(this.selectedCategoryIdFromValue());
           this.cdr.detectChanges();
         }
@@ -58,8 +57,7 @@ export class App implements OnInit {
   onCategoryChange(): void {
     const id = this.selectedCategoryIdFromValue();
     this.loadEvents(id);
-    const categoryParam =
-      this.selectedCategoryValue === '' ? null : encodeURIComponent(this.selectedCategoryValue);
+    const categoryParam = this.selectedCategoryValue === '' ? null : this.selectedCategoryValue;
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { category: categoryParam },
