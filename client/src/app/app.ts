@@ -21,6 +21,7 @@ export class App implements OnInit {
   /** Bound to the select; '' = All, otherwise category id as string */
   selectedCategoryValue = '';
   events: EventApi[] = [];
+  hoveredEventId: number | null = null;
 
   constructor(
     private eventsService: EventsService,
@@ -52,6 +53,10 @@ export class App implements OnInit {
         this.cdr.detectChanges();
       }
     });
+  }
+
+  onTimelineItemHover(eventId: number | null): void {
+    this.hoveredEventId = eventId;
   }
 
   onCategoryChange(): void {

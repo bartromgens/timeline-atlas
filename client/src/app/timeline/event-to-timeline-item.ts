@@ -1,7 +1,7 @@
 import type { TimelineItem } from 'vis-timeline';
 import { colorForCategory } from '../models/category-colors';
 import type { EventApi } from '../models/event';
-import { eventEndDate, eventStartDate } from '../models/event';
+import { endOfDay, eventEndDate, eventStartDate } from '../models/event';
 
 const UNCATEGORIZED_GROUP_ID = 'uncategorized';
 
@@ -11,7 +11,11 @@ export function eventToTimelineItem(event: EventApi): TimelineItem | null {
   const start = eventStartDate(event);
   if (!start) return null;
 
-  const end = eventEndDate(event);
+  let end = eventEndDate(event);
+  const noEndDate = !event.end_time?.value;
+  if (noEndDate && (end == null || end.getTime() === start.getTime())) {
+    end = endOfDay(start);
+  }
   const startMs = start.getTime();
   const endMs = end != null ? end.getTime() : startMs;
   const hasRange =
@@ -23,18 +27,16 @@ export function eventToTimelineItem(event: EventApi): TimelineItem | null {
     event.category_id != null ? String(event.category_id) : UNCATEGORIZED_GROUP_ID;
   const color = colorForCategory(event.category_id);
 
-  const tooltip = description ? `${label}\n\n${description}` : label;
-
   const item: TimelineItem = {
     id: event.id,
     content: label,
     start: start.toISOString(),
-    title: tooltip,
+    title: description ?? '',
     group: groupId,
     style: `border-left: 4px solid ${color}; background-color: ${color}22;`,
   };
 
-  if (hasRange) {
+  if (hasRange && end != null) {
     item.end = end.toISOString();
     item.type = 'range';
   } else {
@@ -48,7 +50,7 @@ export const MIN_SPAN_MS = 24 * 60 * 60 * 1000;
 const MAX_SPAN_MS = 100 * 365.25 * 24 * 60 * 60 * 1000;
 const FOCUSED_SPAN_MS = 10 * 365.25 * 24 * 60 * 60 * 1000;
 const MIN_VISIBLE_EVENTS = 20;
-const MAX_OVERLAPPING_EVENTS = 6;
+const MAX_OVERLAPPING_EVENTS = 12;
 
 export interface VisibleWindow {
   startMs: number;

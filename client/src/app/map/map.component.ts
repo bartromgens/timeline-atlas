@@ -17,6 +17,10 @@ const MAX_RADIUS_PX = 18;
 const FIT_PADDING_PX = 40;
 const FIT_MIN_ZOOM = 4;
 const FIT_MAX_ZOOM = 7;
+const HIGHLIGHT_WEIGHT = 3;
+const HIGHLIGHT_FILL_OPACITY = 0.55;
+const HIGHLIGHT_COLOR = '#ff9800';
+const HIGHLIGHT_RADIUS_FACTOR = 1;
 
 function radiusFromImportance(importance: number | null, dataMin: number, dataMax: number): number {
   const score = importance ?? dataMin;
@@ -70,9 +74,14 @@ function centerOfMass(
 export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
+  @Input() highlightedEventId: number | null = null;
 
   private map: L.Map | null = null;
   private circlesLayer: L.LayerGroup | null = null;
+  private circleDataByEventId = new Map<
+    number,
+    { circle: L.CircleMarker; baseRadius: number; color: string }
+  >();
 
   ngAfterViewInit(): void {
     const container = this.mapContainer?.nativeElement;
@@ -90,12 +99,29 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events'] && this.circlesLayer) {
       this.drawEvents(this.events);
+    } else if (changes['highlightedEventId']) {
+      this.applyHighlight();
+    }
+  }
+
+  private applyHighlight(): void {
+    const highlightedId = this.highlightedEventId;
+    for (const [eventId, { circle, baseRadius, color }] of this.circleDataByEventId) {
+      const highlighted = eventId === highlightedId;
+      circle.setStyle({
+        radius: highlighted ? baseRadius * HIGHLIGHT_RADIUS_FACTOR : baseRadius,
+        weight: highlighted ? HIGHLIGHT_WEIGHT : 1.5,
+        fillOpacity: highlighted ? HIGHLIGHT_FILL_OPACITY : 0.25,
+        color: highlighted ? HIGHLIGHT_COLOR : color,
+        fillColor: highlighted ? HIGHLIGHT_COLOR : color,
+      });
     }
   }
 
   private drawEvents(events: EventApi[]): void {
     if (!this.circlesLayer) return;
     this.circlesLayer.clearLayers();
+    this.circleDataByEventId.clear();
 
     const withLocation = events
       .filter(
@@ -130,8 +156,10 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         permanent: false,
         direction: 'top',
       });
+      this.circleDataByEventId.set(event.id, { circle, baseRadius: radius, color });
       this.circlesLayer!.addLayer(circle);
     }
+    this.applyHighlight();
 
     if (withLocation.length > 0 && this.map) {
       const latLngs = withLocation.map(

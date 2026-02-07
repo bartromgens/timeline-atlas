@@ -49,6 +49,12 @@ function hasStartAndEnd(event: EventApi): boolean {
   return !!(event.start_time?.value && event.end_time?.value);
 }
 
+export function endOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
+
 export function eventStartDate(event: EventApi): Date | null {
   if (hasStartAndEnd(event)) {
     return parseEventTime(event.start_time);

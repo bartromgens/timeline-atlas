@@ -2,9 +2,11 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
 } from '@angular/core';
@@ -32,9 +34,15 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('timelineContainer') timelineContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
   @Input() categories: CategoryApi[] = [];
+  @Output() timelineItemHover = new EventEmitter<number | null>();
 
   private timeline: Timeline | null = null;
   private rangeChangedHandler = (): void => this.updateItemsForWindow();
+  private itemOverHandler = (props: { item: number | string }): void => {
+    const id = typeof props.item === 'number' ? props.item : Number(props.item);
+    this.timelineItemHover.emit(id);
+  };
+  private itemOutHandler = (): void => this.timelineItemHover.emit(null);
 
   ngAfterViewInit(): void {
     const container = this.timelineContainer?.nativeElement;
@@ -46,6 +54,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       groupHeightMode: 'fitItems',
       stack: true,
       stackSubgroups: false,
+      orientation: { axis: 'top', item: 'top' },
       margin: {
         item: {
           horizontal: 0,
@@ -54,6 +63,8 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       },
     });
     this.timeline.on('rangechanged', this.rangeChangedHandler);
+    this.timeline.on('itemover', this.itemOverHandler);
+    this.timeline.on('itemout', this.itemOutHandler);
     this.applyEvents();
   }
 
@@ -75,8 +86,8 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       ...fromCategories,
       ...missingIds.sort((a, b) => a - b),
       ...(hasUncategorized ? [null] : []),
-    ];
-    return ordered.map((categoryId) => {
+    ].reverse();
+    return ordered.map((categoryId, index) => {
       const id = categoryId != null ? String(categoryId) : UNCATEGORIZED_GROUP_ID;
       const cat = categoryId != null ? byId.get(categoryId) : null;
       const name =
@@ -88,6 +99,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
         id,
         content: name,
         style: `border-left: 4px solid ${color};`,
+        order: index,
       };
     });
   }
@@ -151,6 +163,8 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   ngOnDestroy(): void {
     if (this.timeline) {
       this.timeline.off('rangechanged', this.rangeChangedHandler);
+      this.timeline.off('itemover', this.itemOverHandler);
+      this.timeline.off('itemout', this.itemOutHandler);
       this.timeline.destroy();
     }
     this.timeline = null;
