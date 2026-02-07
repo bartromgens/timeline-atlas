@@ -1,28 +1,23 @@
 import {
   AfterViewInit,
   Component,
-  DestroyRef,
   ElementRef,
+  Input,
+  OnChanges,
   OnDestroy,
+  SimpleChanges,
   ViewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import * as L from 'leaflet';
-import { EventsService } from '../services/events.service';
 import type { EventApi } from '../models/event';
 
-const MIN_RADIUS_PX = 4;
-const MAX_RADIUS_PX = 24;
+const MIN_RADIUS_PX = 2;
+const MAX_RADIUS_PX = 18;
 
-function radiusFromImportance(
-  importance: number | null,
-  dataMin: number,
-  dataMax: number,
-): number {
+function radiusFromImportance(importance: number | null, dataMin: number, dataMax: number): number {
   const score = importance ?? dataMin;
   const range = dataMax - dataMin;
-  const normalized =
-    range <= 0 ? 1 : Math.max(0, Math.min(1, (score - dataMin) / range));
+  const normalized = range <= 0 ? 1 : Math.max(0, Math.min(1, (score - dataMin) / range));
   return MIN_RADIUS_PX + normalized * (MAX_RADIUS_PX - MIN_RADIUS_PX);
 }
 
@@ -33,16 +28,12 @@ function radiusFromImportance(
   templateUrl: './map.component.html',
   styleUrl: './map.component.css',
 })
-export class MapComponent implements AfterViewInit, OnDestroy {
+export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef<HTMLElement>;
+  @Input() events: EventApi[] = [];
 
   private map: L.Map | null = null;
   private circlesLayer: L.LayerGroup | null = null;
-
-  constructor(
-    private eventsService: EventsService,
-    private destroyRef: DestroyRef,
-  ) {}
 
   ngAfterViewInit(): void {
     const container = this.mapContainer?.nativeElement;
@@ -50,49 +41,43 @@ export class MapComponent implements AfterViewInit, OnDestroy {
 
     this.map = L.map(container).setView([20, 0], 2);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(this.map);
 
     this.circlesLayer = L.layerGroup().addTo(this.map);
+    this.drawEvents(this.events);
+  }
 
-    this.eventsService
-      .getEvents()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (events) => this.drawEvents(events),
-        error: () => {},
-      });
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['events'] && this.circlesLayer) {
+      this.drawEvents(this.events);
+    }
   }
 
   private drawEvents(events: EventApi[]): void {
     if (!this.circlesLayer) return;
     this.circlesLayer.clearLayers();
 
-    const withLocation = events.filter(
-      (e) =>
-        e.location_lat != null &&
-        e.location_lon != null &&
-        Number.isFinite(e.location_lat) &&
-        Number.isFinite(e.location_lon),
-    );
+    const withLocation = events
+      .filter(
+        (e) =>
+          e.location_lat != null &&
+          e.location_lon != null &&
+          Number.isFinite(e.location_lat) &&
+          Number.isFinite(e.location_lon),
+      )
+      .sort((a, b) => (a.importance_score ?? -Infinity) - (b.importance_score ?? -Infinity));
 
     const importanceValues = withLocation
       .map((e) => e.importance_score)
       .filter((s): s is number => s != null && Number.isFinite(s));
-    const dataMin =
-      importanceValues.length > 0 ? Math.min(...importanceValues) : 0;
-    const dataMax =
-      importanceValues.length > 0 ? Math.max(...importanceValues) : 1;
+    const dataMin = importanceValues.length > 0 ? Math.min(...importanceValues) : 0;
+    const dataMax = importanceValues.length > 0 ? Math.max(...importanceValues) : 1;
 
     for (const event of withLocation) {
       const lat = event.location_lat as number;
       const lon = event.location_lon as number;
-      const radius = radiusFromImportance(
-        event.importance_score,
-        dataMin,
-        dataMax,
-      );
+      const radius = radiusFromImportance(event.importance_score, dataMin, dataMax);
 
       const circle = L.circleMarker([lat, lon], {
         radius,

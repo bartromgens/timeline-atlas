@@ -1,13 +1,25 @@
 from rest_framework import serializers
 
-from api.events.models import Event
+from api.events.models import Category, Event
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name", "wikidata_id"]
+        read_only_fields = fields
 
 
 class EventSerializer(serializers.ModelSerializer):
+    category_id = serializers.PrimaryKeyRelatedField(
+        read_only=True, source="category", allow_null=True
+    )
+
     class Meta:
         model = Event
         fields = [
             "id",
+            "category_id",
             "title",
             "description",
             "point_in_time",

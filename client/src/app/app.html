@@ -1,13 +1,26 @@
 <header class="toolbar" role="banner">
   <span class="toolbar-title">{{ projectName }}</span>
+  <label class="toolbar-category">
+    <span class="toolbar-category-label">Category</span>
+    <select
+      class="toolbar-category-select"
+      [(ngModel)]="selectedCategoryValue"
+      (ngModelChange)="onCategoryChange()"
+    >
+      <option value="">All</option>
+      @for (cat of (categories$ | async) ?? []; track cat.id) {
+        <option [value]="cat.id.toString()">{{ cat.name || cat.wikidata_id }}</option>
+      }
+    </select>
+  </label>
 </header>
 
 <main class="main">
   <div class="main-pane">
-    <app-timeline />
+    <app-timeline [events]="events" />
   </div>
   <div class="main-pane">
-    <app-map />
+    <app-map [events]="events" />
   </div>
   <router-outlet />
 </main>
@@ -35,8 +48,19 @@
     box-sizing: border-box;
     background: var(--toolbar-bg, #1976d2);
     color: var(--toolbar-color, #fff);
-    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 4px 5px 0 rgba(0, 0, 0, 0.14), 0 1px 10px 0 rgba(0, 0, 0, 0.12);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    box-shadow:
+      0 2px 4px -1px rgba(0, 0, 0, 0.2),
+      0 4px 5px 0 rgba(0, 0, 0, 0.14),
+      0 1px 10px 0 rgba(0, 0, 0, 0.12);
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
     font-size: 1.25rem;
     font-weight: 500;
     letter-spacing: 0.0125em;
@@ -44,6 +68,41 @@
 
   .toolbar-title {
     margin-left: 0;
+  }
+
+  .toolbar-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 1.5rem;
+  }
+
+  .toolbar-category-label {
+    font-size: 0.9rem;
+    font-weight: 400;
+    opacity: 0.95;
+  }
+
+  .toolbar-category-select {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    color: inherit;
+    cursor: pointer;
+    min-width: 10rem;
+  }
+
+  .toolbar-category-select:hover,
+  .toolbar-category-select:focus {
+    background: rgba(255, 255, 255, 0.25);
+    outline: none;
+  }
+
+  .toolbar-category-select option {
+    background: #1976d2;
+    color: #fff;
   }
 
   .main {

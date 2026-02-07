@@ -1,15 +1,15 @@
 import {
   AfterViewInit,
   Component,
-  DestroyRef,
   ElementRef,
+  Input,
+  OnChanges,
   OnDestroy,
+  SimpleChanges,
   ViewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Timeline } from 'vis-timeline';
-import type { TimelineItem } from 'vis-timeline';
-import { EventsService } from '../services/events.service';
+import type { EventApi } from '../models/event';
 import { eventsToTimelineItems } from './event-to-timeline-item';
 
 @Component({
@@ -19,15 +19,12 @@ import { eventsToTimelineItems } from './event-to-timeline-item';
   templateUrl: './timeline.component.html',
   styleUrl: './timeline.component.css',
 })
-export class TimelineComponent implements AfterViewInit, OnDestroy {
+export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('timelineContainer') timelineContainer!: ElementRef<HTMLElement>;
+  @Input() events: EventApi[] = [];
 
   private timeline: Timeline | null = null;
-
-  constructor(
-    private eventsService: EventsService,
-    private destroyRef: DestroyRef,
-  ) {}
+  private rangeChangedHandler = (): void => this.updateItemsForWindow();
 
   ngAfterViewInit(): void {
     const container = this.timelineContainer?.nativeElement;
@@ -37,31 +34,38 @@ export class TimelineComponent implements AfterViewInit, OnDestroy {
       editable: false,
       zoomKey: 'ctrlKey',
     });
+    this.timeline.on('rangechanged', this.rangeChangedHandler);
+    this.applyEvents();
+  }
 
-    this.eventsService
-      .getEvents()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (events) => {
-          const timelineItems = eventsToTimelineItems(events);
-          this.timeline?.setItems(timelineItems);
-          this.timeline?.fit();
-        },
-        error: () => {
-          this.timeline?.setItems([
-            {
-              id: 0,
-              content: 'Failed to load events',
-              start: new Date().toISOString(),
-              type: 'point',
-            },
-          ]);
-        },
-      });
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['events']) {
+      this.applyEvents();
+    }
+  }
+
+  private applyEvents(): void {
+    if (!this.timeline) return;
+    if (this.events.length === 0) {
+      this.timeline.setItems([]);
+      return;
+    }
+    this.timeline.setItems(eventsToTimelineItems(this.events));
+    this.timeline.fit();
+  }
+
+  private updateItemsForWindow(): void {
+    if (!this.timeline || this.events.length === 0) return;
+    const window = this.timeline.getWindow();
+    const visibleSpanMs = window.end.getTime() - window.start.getTime();
+    this.timeline.setItems(eventsToTimelineItems(this.events, visibleSpanMs));
   }
 
   ngOnDestroy(): void {
-    this.timeline?.destroy();
+    if (this.timeline) {
+      this.timeline.off('rangechanged', this.rangeChangedHandler);
+      this.timeline.destroy();
+    }
     this.timeline = null;
   }
 }

@@ -28,14 +28,30 @@ export function eventToTimelineItem(event: EventApi): TimelineItem | null {
   return item;
 }
 
-const MIN_IMPORTANCE_FOR_TIMELINE = 0.2;
+const MIN_SPAN_MS = 24 * 60 * 60 * 1000;
+const MAX_SPAN_MS = 30 * 365.25 * 24 * 60 * 60 * 1000;
+const MIN_VISIBLE_EVENTS = 8;
 
-export function eventsToTimelineItems(events: EventApi[]): TimelineItem[] {
-  const aboveThreshold = events.filter(
-    (e) => (e.importance_score ?? 0) >= MIN_IMPORTANCE_FOR_TIMELINE,
-  );
+export function minImportanceForVisibleSpan(visibleSpanMs: number): number {
+  if (visibleSpanMs <= MIN_SPAN_MS) return 0;
+  if (visibleSpanMs >= MAX_SPAN_MS) return 1;
+  const logMin = Math.log(MIN_SPAN_MS);
+  const logMax = Math.log(MAX_SPAN_MS);
+  const logSpan = Math.log(visibleSpanMs);
+  return (logSpan - logMin) / (logMax - logMin);
+}
+
+export function eventsToTimelineItems(events: EventApi[], visibleSpanMs?: number): TimelineItem[] {
+  const minImportance = visibleSpanMs != null ? minImportanceForVisibleSpan(visibleSpanMs) : 0;
+  const aboveThreshold = events.filter((e) => (e.importance_score ?? 0) >= minImportance);
   const byImportance = [...aboveThreshold].sort(
     (a, b) => (b.importance_score ?? -Infinity) - (a.importance_score ?? -Infinity),
   );
-  return byImportance.map(eventToTimelineItem).filter((item): item is TimelineItem => item != null);
+  const toShow =
+    byImportance.length >= MIN_VISIBLE_EVENTS
+      ? byImportance
+      : [...events]
+          .sort((a, b) => (b.importance_score ?? -Infinity) - (a.importance_score ?? -Infinity))
+          .slice(0, MIN_VISIBLE_EVENTS);
+  return toShow.map(eventToTimelineItem).filter((item): item is TimelineItem => item != null);
 }
