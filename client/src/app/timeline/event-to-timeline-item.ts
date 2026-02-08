@@ -7,7 +7,14 @@ const UNCATEGORIZED_GROUP_ID = 'uncategorized';
 
 const MIN_RANGE_MS = 1000;
 
-export function eventToTimelineItem(event: EventApi): TimelineItem | null {
+export interface EventToTimelineItemOptions {
+  hideLabel?: boolean;
+}
+
+export function eventToTimelineItem(
+  event: EventApi,
+  options?: EventToTimelineItemOptions,
+): TimelineItem | null {
   const start = eventStartDate(event);
   if (!start) return null;
 
@@ -26,10 +33,11 @@ export function eventToTimelineItem(event: EventApi): TimelineItem | null {
   const groupId =
     event.category_id != null ? String(event.category_id) : UNCATEGORIZED_GROUP_ID;
   const color = colorForCategory(event.category_id);
+  const content = options?.hideLabel ? '' : label;
 
   const item: TimelineItem = {
     id: event.id,
-    content: label,
+    content,
     start: start.toISOString(),
     title: description ?? '',
     group: groupId,
@@ -51,6 +59,7 @@ const MAX_SPAN_MS = 100 * 365.25 * 24 * 60 * 60 * 1000;
 const FOCUSED_SPAN_MS = 10 * 365.25 * 24 * 60 * 60 * 1000;
 const MIN_VISIBLE_EVENTS = 20;
 const MAX_OVERLAPPING_EVENTS = 12;
+const SHORT_EVENT_FRACTION = 0.05;
 
 export interface VisibleWindow {
   startMs: number;
@@ -178,5 +187,49 @@ export function eventsToTimelineItems(
           .slice(0, Math.max(minToShow, topEvents.length));
 
   const result = selectEventsUpToMaxConcurrent(toShow, maxOverlapping);
-  return result.map(eventToTimelineItem).filter((item): item is TimelineItem => item != null);
+  const hideLabelByEventId = computeHideLabelByEventId(result, visibleWindow);
+  return result
+    .map((event) =>
+      eventToTimelineItem(event, {
+        hideLabel: hideLabelByEventId.get(event.id) ?? false,
+      }),
+    )
+    .filter((item): item is TimelineItem => item != null);
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function computeHideLabelByEventId(
+  events: EventApi[],
+  visibleWindow: VisibleWindow | undefined,
+): Map<number, boolean> {
+  const out = new Map<number, boolean>();
+  if (!visibleWindow || events.length === 0) return out;
+  const visibleSpanMs = visibleWindow.endMs - visibleWindow.startMs;
+  if (visibleSpanMs <= 0) return out;
+
+  const importanceScores = events.map((e) => e.importance_score ?? 0);
+  const medianImportance = median(importanceScores);
+
+  for (const event of events) {
+    const start = eventStartDate(event);
+    if (!start) continue;
+    let end = eventEndDate(event) ?? start;
+    const noEndDate = !event.end_time?.value;
+    if (noEndDate && end.getTime() === start.getTime()) {
+      end = endOfDay(start);
+    }
+    const eventSpanMs = Math.max(0, end.getTime() - start.getTime());
+    const short = eventSpanMs / visibleSpanMs < SHORT_EVENT_FRACTION;
+    const lowImportance = (event.importance_score ?? 0) < medianImportance;
+    out.set(event.id, short && lowImportance);
+  }
+  return out;
 }
