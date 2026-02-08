@@ -1,0 +1,238 @@
+<div class="analytics">
+  <div class="analytics-header">
+    <h1 class="analytics-title">Event analytics</h1>
+    <a routerLink="/" class="analytics-back">← Back to map</a>
+  </div>
+
+  @if (loading()) {
+    <p class="analytics-loading">Loading events…</p>
+  } @else if (error()) {
+    <p class="analytics-error">Failed to load events.</p>
+  } @else {
+    <div class="analytics-summary">
+      <span class="analytics-total">{{ events().length }} events</span>
+    </div>
+    <div class="analytics-charts">
+      @if (importanceChart(); as chart) {
+        <figure class="chart">
+          <figcaption class="chart-title">{{ chart.title }} (n={{ chart.total }})</figcaption>
+          <svg class="chart-svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet">
+            @for (bucket of chart.buckets; track bucket.label; let i = $index) {
+              @let barHeight = chart.maxCount > 0 ? (bucket.count / chart.maxCount) * 160 : 0;
+              @let x = 50 + (i / chart.buckets.length) * 320;
+              @let w = (320 / chart.buckets.length) * 0.85;
+              <g>
+                <rect
+                  [attr.x]="x"
+                  [attr.y]="200 - barHeight"
+                  [attr.width]="w"
+                  [attr.height]="barHeight"
+                  class="chart-bar"
+                />
+                <text
+                  [attr.x]="x + w / 2"
+                  [attr.y]="212"
+                  class="chart-label"
+                  text-anchor="middle"
+                >
+                  {{ bucket.label }}
+                </text>
+                @if (bucket.count > 0) {
+                  <text
+                    [attr.x]="x + w / 2"
+                    [attr.y]="195 - barHeight"
+                    class="chart-value"
+                    text-anchor="middle"
+                  >
+                    {{ bucket.count }}
+                  </text>
+                }
+              </g>
+            }
+          </svg>
+          <table class="chart-table">
+            <thead>
+              <tr>
+                <th>Range</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (bucket of chart.buckets; track bucket.label) {
+                <tr>
+                  <td>{{ bucket.label }}</td>
+                  <td>{{ bucket.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+      }
+      @if (pageviewsChart(); as chart) {
+        <figure class="chart">
+          <figcaption class="chart-title">{{ chart.title }} (n={{ chart.total }})</figcaption>
+          <svg class="chart-svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet">
+            @for (bucket of chart.buckets; track bucket.label; let i = $index) {
+              @let barHeight = chart.maxCount > 0 ? (bucket.count / chart.maxCount) * 160 : 0;
+              @let x = 50 + (i / chart.buckets.length) * 320;
+              @let w = (320 / chart.buckets.length) * 0.85;
+              <g>
+                <rect
+                  [attr.x]="x"
+                  [attr.y]="200 - barHeight"
+                  [attr.width]="w"
+                  [attr.height]="barHeight"
+                  class="chart-bar chart-bar--pageviews"
+                />
+                <text
+                  [attr.x]="x + w / 2"
+                  [attr.y]="212"
+                  class="chart-label"
+                  text-anchor="middle"
+                >
+                  {{ bucket.label }}
+                </text>
+                @if (bucket.count > 0) {
+                  <text
+                    [attr.x]="x + w / 2"
+                    [attr.y]="195 - barHeight"
+                    class="chart-value"
+                    text-anchor="middle"
+                  >
+                    {{ bucket.count }}
+                  </text>
+                }
+              </g>
+            }
+          </svg>
+          <table class="chart-table">
+            <thead>
+              <tr>
+                <th>Range</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (bucket of chart.buckets; track bucket.label) {
+                <tr>
+                  <td>{{ bucket.label }}</td>
+                  <td>{{ bucket.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+      }
+      @if (sitelinksChart(); as chart) {
+        <figure class="chart">
+          <figcaption class="chart-title">{{ chart.title }} (n={{ chart.total }})</figcaption>
+          <svg class="chart-svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet">
+            @for (bucket of chart.buckets; track bucket.label; let i = $index) {
+              @let barHeight = chart.maxCount > 0 ? (bucket.count / chart.maxCount) * 160 : 0;
+              @let x = 50 + (i / chart.buckets.length) * 320;
+              @let w = (320 / chart.buckets.length) * 0.85;
+              <g>
+                <rect
+                  [attr.x]="x"
+                  [attr.y]="200 - barHeight"
+                  [attr.width]="w"
+                  [attr.height]="barHeight"
+                  class="chart-bar chart-bar--sitelinks"
+                />
+                <text
+                  [attr.x]="x + w / 2"
+                  [attr.y]="212"
+                  class="chart-label"
+                  text-anchor="middle"
+                >
+                  {{ bucket.label }}
+                </text>
+                @if (bucket.count > 0) {
+                  <text
+                    [attr.x]="x + w / 2"
+                    [attr.y]="195 - barHeight"
+                    class="chart-value"
+                    text-anchor="middle"
+                  >
+                    {{ bucket.count }}
+                  </text>
+                }
+              </g>
+            }
+          </svg>
+          <table class="chart-table">
+            <thead>
+              <tr>
+                <th>Range</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (bucket of chart.buckets; track bucket.label) {
+                <tr>
+                  <td>{{ bucket.label }}</td>
+                  <td>{{ bucket.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+      }
+      @if (backlinksChart(); as chart) {
+        <figure class="chart">
+          <figcaption class="chart-title">{{ chart.title }} (n={{ chart.total }})</figcaption>
+          <svg class="chart-svg" viewBox="0 0 400 220" preserveAspectRatio="xMidYMid meet">
+            @for (bucket of chart.buckets; track bucket.label; let i = $index) {
+              @let barHeight = chart.maxCount > 0 ? (bucket.count / chart.maxCount) * 160 : 0;
+              @let x = 50 + (i / chart.buckets.length) * 320;
+              @let w = (320 / chart.buckets.length) * 0.85;
+              <g>
+                <rect
+                  [attr.x]="x"
+                  [attr.y]="200 - barHeight"
+                  [attr.width]="w"
+                  [attr.height]="barHeight"
+                  class="chart-bar chart-bar--backlinks"
+                />
+                <text
+                  [attr.x]="x + w / 2"
+                  [attr.y]="212"
+                  class="chart-label"
+                  text-anchor="middle"
+                >
+                  {{ bucket.label }}
+                </text>
+                @if (bucket.count > 0) {
+                  <text
+                    [attr.x]="x + w / 2"
+                    [attr.y]="195 - barHeight"
+                    class="chart-value"
+                    text-anchor="middle"
+                  >
+                    {{ bucket.count }}
+                  </text>
+                }
+              </g>
+            }
+          </svg>
+          <table class="chart-table">
+            <thead>
+              <tr>
+                <th>Range</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (bucket of chart.buckets; track bucket.label) {
+                <tr>
+                  <td>{{ bucket.label }}</td>
+                  <td>{{ bucket.count }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+      }
+    </div>
+  }
+</div>

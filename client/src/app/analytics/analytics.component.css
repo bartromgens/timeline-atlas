@@ -1,0 +1,136 @@
+.analytics {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.analytics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.analytics-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--analytics-fg, #1a1a1a);
+}
+
+.analytics-back {
+  color: var(--toolbar-bg, #1976d2);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.analytics-back:hover {
+  text-decoration: underline;
+}
+
+.analytics-loading,
+.analytics-error {
+  margin: 1rem 0;
+  color: var(--analytics-fg-muted, #666);
+}
+
+.analytics-error {
+  color: var(--analytics-error, #b71c1c);
+}
+
+.analytics-summary {
+  margin-bottom: 1.25rem;
+  flex-shrink: 0;
+}
+
+.analytics-total {
+  font-size: 0.9rem;
+  color: var(--analytics-fg-muted, #666);
+}
+
+.analytics-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 2rem;
+  align-content: start;
+}
+
+.chart {
+  margin: 0;
+  padding: 1rem;
+  background: var(--analytics-card-bg, #fafafa);
+  border-radius: 8px;
+  border: 1px solid var(--analytics-card-border, #e0e0e0);
+  min-width: 0;
+}
+
+.chart-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  color: var(--analytics-fg, #1a1a1a);
+}
+
+.chart-svg {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+}
+
+.chart-bar {
+  fill: var(--toolbar-bg, #1976d2);
+  rx: 2;
+}
+
+.chart-bar--pageviews {
+  fill: #2e7d32;
+}
+
+.chart-bar--sitelinks {
+  fill: #1565c0;
+}
+
+.chart-bar--backlinks {
+  fill: #6a1b9a;
+}
+
+.chart-label {
+  font-size: 9px;
+  fill: var(--analytics-fg-muted, #666);
+}
+
+.chart-value {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--analytics-fg, #1a1a1a);
+}
+
+.chart-table {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.chart-table th,
+.chart-table td {
+  padding: 0.35rem 0.75rem;
+  text-align: left;
+  border: 1px solid var(--analytics-card-border, #e0e0e0);
+}
+
+.chart-table th {
+  background: var(--analytics-card-border, #eee);
+  font-weight: 600;
+  color: var(--analytics-fg, #1a1a1a);
+}
+
+.chart-table td:nth-child(2) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

@@ -2,7 +2,14 @@ import { AsyncPipe } from '@angular/common';
 import { ChangeDetectorRef, Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterOutlet,
+} from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { MapComponent } from './map/map.component';
 import type { CategoryApi, EventApi } from './models/event';
@@ -11,7 +18,7 @@ import { TimelineComponent } from './timeline/timeline.component';
 
 @Component({
   selector: 'app-root',
-  imports: [AsyncPipe, FormsModule, RouterOutlet, TimelineComponent, MapComponent],
+  imports: [AsyncPipe, FormsModule, RouterLink, RouterOutlet, TimelineComponent, MapComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
@@ -22,6 +29,7 @@ export class App implements OnInit {
   selectedCategoryValue = '';
   events: EventApi[] = [];
   hoveredEventId: number | null = null;
+  isAnalyticsPage = false;
 
   constructor(
     private eventsService: EventsService,
@@ -31,9 +39,19 @@ export class App implements OnInit {
     private router: Router,
   ) {
     this.categories$ = this.eventsService.getCategories();
+    this.router.events
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((e) => {
+        this.isAnalyticsPage = e.urlAfterRedirects.includes('/analytics');
+        this.cdr.detectChanges();
+      });
   }
 
   ngOnInit(): void {
+    this.isAnalyticsPage = this.router.url.includes('/analytics');
     const categoryParam = this.route.snapshot.queryParamMap.get('category');
     if (categoryParam != null && categoryParam !== '') {
       this.selectedCategoryValue = categoryParam;
