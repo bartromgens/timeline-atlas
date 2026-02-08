@@ -102,12 +102,12 @@ class WikidataSparqlClient:
         if start_year is not None or end_year is not None:
             sort_date_expr = (
                 "COALESCE(?start_time, ?start_time_q, ?point_in_time, "
-                "?point_in_time_q, ?end_time, ?end_time_q)"
+                "?point_in_time_q, ?point_in_time_p793, ?end_time, ?end_time_q)"
             )
             parts = [
                 "(BOUND(?point_in_time) || BOUND(?point_in_time_q) || "
-                "BOUND(?start_time) || BOUND(?start_time_q) || "
-                "BOUND(?end_time) || BOUND(?end_time_q))"
+                "BOUND(?point_in_time_p793) || BOUND(?start_time) || "
+                "BOUND(?start_time_q) || BOUND(?end_time) || BOUND(?end_time_q))"
             ]
             if start_year is not None:
                 parts.append(f"(YEAR({sort_date_expr}) >= {start_year})")
@@ -117,7 +117,9 @@ class WikidataSparqlClient:
 
         day_precision_filter = (
             " FILTER(?point_in_time_precision = 11 || "
-            "?start_time_precision = 11 || ?end_time_precision = 11)"
+            "?start_time_precision = 11 || ?end_time_precision = 11 || "
+            "BOUND(?point_in_time_q) || BOUND(?start_time_q) || BOUND(?end_time_q) || "
+            "BOUND(?point_in_time_p793))"
         )
 
         return f"""
@@ -126,18 +128,25 @@ PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX p: <http://www.wikidata.org/prop/>
 PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
 PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 
-SELECT DISTINCT ?item ?itemLabel ?itemDescription ?point_in_time ?start_time ?end_time ?point_in_time_precision ?start_time_precision ?end_time_precision ?point_in_time_q ?start_time_q ?end_time_q ?location ?locationLabel ?article
+SELECT DISTINCT ?item ?itemLabel ?itemDescription ?point_in_time ?start_time ?end_time ?point_in_time_precision ?start_time_precision ?end_time_precision ?point_in_time_q ?start_time_q ?end_time_q ?point_in_time_p793 ?location ?locationLabel ?article
 WHERE {{
-  ?item wdt:P361* wd:{category_qid} .
+  {{
+    ?item wdt:P361* wd:{category_qid} .
+  }} UNION {{
+    ?item wdt:P31 ?type .
+    ?type wdt:P279* wd:{category_qid} .
+  }}
   OPTIONAL {{ ?item p:P585/psv:P585 [wikibase:timeValue ?point_in_time; wikibase:timePrecision ?point_in_time_precision] . }}
   OPTIONAL {{ ?item p:P580/psv:P580 [wikibase:timeValue ?start_time; wikibase:timePrecision ?start_time_precision] . }}
   OPTIONAL {{ ?item p:P582/psv:P582 [wikibase:timeValue ?end_time; wikibase:timePrecision ?end_time_precision] . }}
   OPTIONAL {{ ?item p:P361/pq:P585 ?point_in_time_q . }}
   OPTIONAL {{ ?item p:P361/pq:P580 ?start_time_q . }}
   OPTIONAL {{ ?item p:P361/pq:P582 ?end_time_q . }}
+  OPTIONAL {{ ?item p:P793/pqv:P585 [wikibase:timeValue ?point_in_time_p793] . }}
   OPTIONAL {{ ?item wdt:P276 ?location . }}
   OPTIONAL {{
     ?article schema:about ?item .
@@ -148,7 +157,7 @@ WHERE {{
   {day_precision_filter}
   {year_filter}
 }}
-ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?point_in_time) || BOUND(?point_in_time_q) || BOUND(?end_time) || BOUND(?end_time_q)) ASC(COALESCE(?start_time, ?start_time_q, ?point_in_time, ?point_in_time_q, ?end_time, ?end_time_q))
+ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?point_in_time) || BOUND(?point_in_time_q) || BOUND(?point_in_time_p793) || BOUND(?end_time) || BOUND(?end_time_q)) ASC(COALESCE(?start_time, ?start_time_q, ?point_in_time, ?point_in_time_q, ?point_in_time_p793, ?end_time, ?end_time_q))
 LIMIT {limit}
 """
 
@@ -428,12 +437,17 @@ LIMIT {limit}
             rows: list[dict],
             val_key: str,
             precision_key: str,
-            qual_key: str,
+            *qual_keys: str,
         ) -> tuple[str | None, str | None]:
             raw = None
             prec = None
             for r in rows:
-                v = get_val(r, val_key) or get_val(r, qual_key)
+                v = get_val(r, val_key)
+                if v is None and qual_keys:
+                    for qk in qual_keys:
+                        v = get_val(r, qk)
+                        if v is not None:
+                            break
                 if v is not None:
                     raw = v
                     p = get_val(r, precision_key)
@@ -450,13 +464,14 @@ LIMIT {limit}
             qid = extract_wikidata_id(item_uri) or ""
             by_qid.setdefault(qid, []).append(row)
 
-        events = []
+        events: list[dict] = []
         for qid, qid_rows in by_qid.items():
             pt_raw, pt_prec = pick_raw_and_precision(
                 qid_rows,
                 "point_in_time",
                 "point_in_time_precision",
                 "point_in_time_q",
+                "point_in_time_p793",
             )
             st_raw, st_prec = pick_raw_and_precision(
                 qid_rows,

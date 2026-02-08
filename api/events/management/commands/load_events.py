@@ -7,14 +7,14 @@ from api.events.wikidata import EventLoader
 
 
 class Command(BaseCommand):
-    help = "Extract events from a Wikidata category and load them into the database."
+    help = "Extract events from a Wikidata category or type and load them into the database."
 
     def add_arguments(self, parser):
         parser.add_argument(
             "category_qid",
             nargs="?",
             default="Q362",
-            help="Wikidata QID of the category (e.g. Q362 for World War II). Default: Q362.",
+            help="Wikidata QID: 'part of' category (e.g. Q362 World War II) or type (e.g. Q69502940 polar expedition). Default: Q362.",
         )
         parser.add_argument(
             "--start-year",
