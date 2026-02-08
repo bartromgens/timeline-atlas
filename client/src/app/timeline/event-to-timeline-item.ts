@@ -57,8 +57,8 @@ export function eventToTimelineItem(
 export const MIN_SPAN_MS = 24 * 60 * 60 * 1000;
 const MAX_SPAN_MS = 100 * 365.25 * 24 * 60 * 60 * 1000;
 const FOCUSED_SPAN_MS = 10 * 365.25 * 24 * 60 * 60 * 1000;
-const MIN_VISIBLE_EVENTS = 20;
-const MAX_OVERLAPPING_EVENTS = 12;
+const MIN_VISIBLE_EVENTS = 30;
+const MAX_OVERLAPPING_EVENTS = 18;
 const SHORT_EVENT_FRACTION = 0.05;
 
 export interface VisibleWindow {
@@ -86,13 +86,13 @@ export function minImportanceForVisibleSpan(visibleSpanMs: number): number {
 
 function maxEventsForVisibleSpan(visibleSpanMs: number): number {
   const yearsVisible = visibleSpanMs / (365.25 * 24 * 60 * 60 * 1000);
-  
+
   if (yearsVisible < 1) {
-    return Math.min(150, Math.ceil(80 / yearsVisible));
+    return Math.min(225, Math.ceil(120 / yearsVisible));
   } else if (yearsVisible < 5) {
-    return Math.ceil(80 / yearsVisible);
+    return Math.ceil(120 / yearsVisible);
   } else if (yearsVisible < 20) {
-    return Math.ceil(50 / yearsVisible);
+    return Math.ceil(75 / yearsVisible);
   } else {
     return MIN_VISIBLE_EVENTS;
   }
