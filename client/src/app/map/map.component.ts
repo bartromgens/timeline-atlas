@@ -12,8 +12,9 @@ import * as L from 'leaflet';
 import { colorForCategory } from '../models/category-colors';
 import type { EventApi } from '../models/event';
 
-const MIN_RADIUS_PX = 2;
-const MAX_RADIUS_PX = 18;
+const MIN_RADIUS_PX = 2.5;
+const MAX_RADIUS_PX = 22;
+const IMPORTANCE_RADIUS_EXPONENT = 4;
 const FIT_PADDING_PX = 40;
 const FIT_MIN_ZOOM = 4;
 const FIT_MAX_ZOOM = 7;
@@ -26,7 +27,8 @@ function radiusFromImportance(importance: number | null, dataMin: number, dataMa
   const score = importance ?? dataMin;
   const range = dataMax - dataMin;
   const normalized = range <= 0 ? 1 : Math.max(0, Math.min(1, (score - dataMin) / range));
-  return MIN_RADIUS_PX + normalized * (MAX_RADIUS_PX - MIN_RADIUS_PX);
+  const curved = Math.pow(normalized, IMPORTANCE_RADIUS_EXPONENT);
+  return MIN_RADIUS_PX + curved * (MAX_RADIUS_PX - MIN_RADIUS_PX);
 }
 
 function centerOfMass(
