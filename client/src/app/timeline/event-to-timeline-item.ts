@@ -25,13 +25,11 @@ export function eventToTimelineItem(
   }
   const startMs = start.getTime();
   const endMs = end != null ? end.getTime() : startMs;
-  const hasRange =
-    end != null && endMs > startMs && endMs - startMs >= MIN_RANGE_MS;
+  const hasRange = end != null && endMs > startMs && endMs - startMs >= MIN_RANGE_MS;
 
   const label = event.title?.trim() || event.wikipedia_title?.trim() || `Event ${event.id}`;
   const description = event.description?.trim();
-  const groupId =
-    event.category_id != null ? String(event.category_id) : UNCATEGORIZED_GROUP_ID;
+  const groupId = event.category_id != null ? String(event.category_id) : UNCATEGORIZED_GROUP_ID;
   const color = colorForCategory(event.category_id);
   const content = options?.hideLabel ? '' : label;
 
@@ -57,9 +55,16 @@ export function eventToTimelineItem(
 export const MIN_SPAN_MS = 24 * 60 * 60 * 1000;
 const MAX_SPAN_MS = 100 * 365.25 * 24 * 60 * 60 * 1000;
 const FOCUSED_SPAN_MS = 10 * 365.25 * 24 * 60 * 60 * 1000;
-const MIN_VISIBLE_EVENTS = 30;
-const MAX_OVERLAPPING_EVENTS = 18;
-const SHORT_EVENT_FRACTION = 0.05;
+
+export const DEFAULT_MIN_VISIBLE_EVENTS = 30;
+export const DEFAULT_MAX_OVERLAPPING_EVENTS = 12;
+export const DEFAULT_SHORT_EVENT_FRACTION = 0.05;
+
+export interface TimelineDisplayOptions {
+  minVisibleEvents: number;
+  maxOverlappingEvents: number;
+  shortEventFraction: number;
+}
 
 export interface VisibleWindow {
   startMs: number;
@@ -81,10 +86,13 @@ export function minImportanceForVisibleSpan(visibleSpanMs: number): number {
   const logFocused = Math.log(FOCUSED_SPAN_MS);
   const logMax = Math.log(MAX_SPAN_MS);
   const logSpan = Math.log(visibleSpanMs);
-  return 0.8 * (logSpan - logFocused) / (logMax - logFocused);
+  return (0.8 * (logSpan - logFocused)) / (logMax - logFocused);
 }
 
-function maxEventsForVisibleSpan(visibleSpanMs: number): number {
+function maxEventsForVisibleSpan(
+  visibleSpanMs: number,
+  minVisibleEvents: number = DEFAULT_MIN_VISIBLE_EVENTS,
+): number {
   const yearsVisible = visibleSpanMs / (365.25 * 24 * 60 * 60 * 1000);
 
   if (yearsVisible < 1) {
@@ -94,7 +102,7 @@ function maxEventsForVisibleSpan(visibleSpanMs: number): number {
   } else if (yearsVisible < 20) {
     return Math.ceil(75 / yearsVisible);
   } else {
-    return MIN_VISIBLE_EVENTS;
+    return minVisibleEvents;
   }
 }
 
@@ -113,10 +121,7 @@ function timeRangeForEvent(event: EventApi): TimeRange | null {
   return { start: startMs, end: endMs, event };
 }
 
-function selectEventsUpToMaxConcurrent(
-  events: EventApi[],
-  maxConcurrent: number,
-): EventApi[] {
+function selectEventsUpToMaxConcurrent(events: EventApi[], maxConcurrent: number): EventApi[] {
   const byImportance = [...events].sort(
     (a, b) => (b.importance_score ?? -Infinity) - (a.importance_score ?? -Infinity),
   );
@@ -152,24 +157,29 @@ export function eventsToTimelineItems(
   events: EventApi[],
   visibleSpanMs?: number,
   visibleWindow?: VisibleWindow,
+  options?: Partial<TimelineDisplayOptions>,
 ): TimelineItem[] {
+  const minVisibleEvents = options?.minVisibleEvents ?? DEFAULT_MIN_VISIBLE_EVENTS;
+  const maxOverlapping = options?.maxOverlappingEvents ?? DEFAULT_MAX_OVERLAPPING_EVENTS;
+  const shortEventFraction = options?.shortEventFraction ?? DEFAULT_SHORT_EVENT_FRACTION;
+
   const minImportance = visibleSpanMs != null ? minImportanceForVisibleSpan(visibleSpanMs) : 0;
-  const maxEvents = visibleSpanMs != null ? maxEventsForVisibleSpan(visibleSpanMs) : events.length;
-  const maxOverlapping = MAX_OVERLAPPING_EVENTS;
+  const maxEvents =
+    visibleSpanMs != null
+      ? maxEventsForVisibleSpan(visibleSpanMs, minVisibleEvents)
+      : events.length;
 
   const pool = visibleWindow
-    ? events.filter((e) =>
-        eventOverlapsWindow(e, visibleWindow.startMs, visibleWindow.endMs),
-      )
+    ? events.filter((e) => eventOverlapsWindow(e, visibleWindow.startMs, visibleWindow.endMs))
     : events;
 
-  const minToShow = visibleWindow
-    ? Math.min(MIN_VISIBLE_EVENTS, pool.length)
-    : 0;
+  const minToShow = visibleWindow ? Math.min(minVisibleEvents, pool.length) : 0;
 
   if (visibleSpanMs) {
     const years = visibleSpanMs / (365.25 * 24 * 60 * 60 * 1000);
-    console.log(`Zoom: ${years.toFixed(1)}y → max ${maxEvents} events, ${MAX_OVERLAPPING_EVENTS} concurrent`);
+    console.log(
+      `Zoom: ${years.toFixed(1)}y → max ${maxEvents} events, ${maxOverlapping} concurrent`,
+    );
   }
 
   const aboveThreshold = pool.filter((e) => (e.importance_score ?? 0) >= minImportance);
@@ -187,7 +197,7 @@ export function eventsToTimelineItems(
           .slice(0, Math.max(minToShow, topEvents.length));
 
   const result = selectEventsUpToMaxConcurrent(toShow, maxOverlapping);
-  const hideLabelByEventId = computeHideLabelByEventId(result, visibleWindow);
+  const hideLabelByEventId = computeHideLabelByEventId(result, visibleWindow, shortEventFraction);
   return result
     .map((event) =>
       eventToTimelineItem(event, {
@@ -201,14 +211,13 @@ function median(values: number[]): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1
-    ? sorted[mid]
-    : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function computeHideLabelByEventId(
   events: EventApi[],
   visibleWindow: VisibleWindow | undefined,
+  shortEventFraction: number = DEFAULT_SHORT_EVENT_FRACTION,
 ): Map<number, boolean> {
   const out = new Map<number, boolean>();
   if (!visibleWindow || events.length === 0) return out;
@@ -227,7 +236,7 @@ function computeHideLabelByEventId(
       end = endOfDay(start);
     }
     const eventSpanMs = Math.max(0, end.getTime() - start.getTime());
-    const short = eventSpanMs / visibleSpanMs < SHORT_EVENT_FRACTION;
+    const short = eventSpanMs / visibleSpanMs < shortEventFraction;
     const lowImportance = (event.importance_score ?? 0) < medianImportance;
     out.set(event.id, short && lowImportance);
   }

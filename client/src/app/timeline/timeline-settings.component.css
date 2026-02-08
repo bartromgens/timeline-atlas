@@ -1,0 +1,40 @@
+.settings-panel {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.setting-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.setting-value {
+  font-variant-numeric: tabular-nums;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.setting-slider {
+  width: 100%;
+  height: 6px;
+  accent-color: #1976d2;
+  cursor: pointer;
+}

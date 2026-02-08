@@ -1,0 +1,45 @@
+<div class="settings-panel">
+  <h3 class="settings-title">Timeline display</h3>
+  <div class="setting">
+    <label class="setting-label">
+      <span>Min visible events</span>
+      <span class="setting-value">{{ options.minVisibleEvents }}</span>
+    </label>
+    <input
+      type="range"
+      class="setting-slider"
+      [min]="minVisibleEventsMin"
+      [max]="minVisibleEventsMax"
+      [ngModel]="options.minVisibleEvents"
+      (ngModelChange)="onMinVisibleEventsChange($event)"
+    />
+  </div>
+  <div class="setting">
+    <label class="setting-label">
+      <span>Max overlapping events</span>
+      <span class="setting-value">{{ options.maxOverlappingEvents }}</span>
+    </label>
+    <input
+      type="range"
+      class="setting-slider"
+      [min]="maxOverlappingMin"
+      [max]="maxOverlappingMax"
+      [ngModel]="options.maxOverlappingEvents"
+      (ngModelChange)="onMaxOverlappingChange($event)"
+    />
+  </div>
+  <div class="setting">
+    <label class="setting-label">
+      <span>Short event threshold</span>
+      <span class="setting-value">{{ shortEventFractionPercent }}%</span>
+    </label>
+    <input
+      type="range"
+      class="setting-slider"
+      [min]="1"
+      [max]="20"
+      [ngModel]="shortEventFractionPercent"
+      (ngModelChange)="onShortEventFractionPercentChange($event)"
+    />
+  </div>
+</div>

@@ -19,14 +19,21 @@ import {
   eventsToTimelineItems,
   MIN_SPAN_MS,
   type VisibleWindow,
+  type TimelineDisplayOptions,
+  DEFAULT_MAX_OVERLAPPING_EVENTS,
+  DEFAULT_MIN_VISIBLE_EVENTS,
+  DEFAULT_SHORT_EVENT_FRACTION,
 } from './event-to-timeline-item';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { TimelineSettingsComponent } from './timeline-settings.component';
 
 const UNCATEGORIZED_GROUP_ID = 'uncategorized';
 
 @Component({
   selector: 'app-timeline',
   standalone: true,
-  imports: [],
+  imports: [TimelineSettingsComponent, MatButtonModule, MatIconModule],
   templateUrl: './timeline.component.html',
   styleUrl: './timeline.component.css',
 })
@@ -35,6 +42,13 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() events: EventApi[] = [];
   @Input() categories: CategoryApi[] = [];
   @Output() timelineItemHover = new EventEmitter<number | null>();
+
+  settingsOpen = false;
+  displayOptions: TimelineDisplayOptions = {
+    minVisibleEvents: DEFAULT_MIN_VISIBLE_EVENTS,
+    maxOverlappingEvents: DEFAULT_MAX_OVERLAPPING_EVENTS,
+    shortEventFraction: DEFAULT_SHORT_EVENT_FRACTION,
+  };
 
   private timeline: Timeline | null = null;
   private rangeChangedHandler = (): void => this.updateItemsForWindow();
@@ -120,7 +134,9 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
         startMs: range.start.getTime(),
         endMs: range.end.getTime(),
       };
-      this.timeline.setItems(eventsToTimelineItems(this.events, spanMs, visibleWindow));
+      this.timeline.setItems(
+        eventsToTimelineItems(this.events, spanMs, visibleWindow, this.displayOptions),
+      );
     } else {
       this.timeline.setItems([]);
     }
@@ -157,7 +173,18 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       startMs: window.start.getTime(),
       endMs: window.end.getTime(),
     };
-    this.timeline.setItems(eventsToTimelineItems(this.events, visibleSpanMs, visibleWindow));
+    this.timeline.setItems(
+      eventsToTimelineItems(this.events, visibleSpanMs, visibleWindow, this.displayOptions),
+    );
+  }
+
+  toggleSettings(): void {
+    this.settingsOpen = !this.settingsOpen;
+  }
+
+  onDisplayOptionsChange(options: TimelineDisplayOptions): void {
+    this.displayOptions = options;
+    this.updateItemsForWindow();
   }
 
   ngOnDestroy(): void {

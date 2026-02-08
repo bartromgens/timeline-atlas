@@ -9,6 +9,11 @@ import {
   RouterLink,
   RouterOutlet,
 } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
+import { MatToolbarModule } from '@angular/material/toolbar';
 import { filter } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { MapComponent } from './map/map.component';
@@ -18,7 +23,19 @@ import { TimelineComponent } from './timeline/timeline.component';
 
 @Component({
   selector: 'app-root',
-  imports: [AsyncPipe, FormsModule, RouterLink, RouterOutlet, TimelineComponent, MapComponent],
+  imports: [
+    AsyncPipe,
+    FormsModule,
+    RouterLink,
+    RouterOutlet,
+    TimelineComponent,
+    MapComponent,
+    MatToolbarModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatSelectModule,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })

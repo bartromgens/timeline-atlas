@@ -1,3 +1,26 @@
 <div class="timeline-wrapper">
+  <div class="timeline-header">
+    <button
+      mat-icon-button
+      type="button"
+      (click)="toggleSettings()"
+      [attr.aria-expanded]="settingsOpen"
+      aria-label="Toggle timeline settings"
+      title="Timeline settings"
+    >
+      <mat-icon fontIcon="settings" />
+    </button>
+  </div>
   <div #timelineContainer class="timeline-container"></div>
+  <aside
+    class="settings-sidebar"
+    [class.settings-sidebar--open]="settingsOpen"
+    aria-label="Timeline display settings"
+    [attr.aria-hidden]="!settingsOpen"
+  >
+    <app-timeline-settings
+      [options]="displayOptions"
+      (optionsChange)="onDisplayOptionsChange($event)"
+    />
+  </aside>
 </div>
