@@ -1,7 +1,7 @@
 import type { TimelineItem } from 'vis-timeline';
 import { colorForCategory } from '../models/category-colors';
-import type { EventApi } from '../models/event';
-import { endOfDay, eventEndDate, eventStartDate } from '../models/event';
+import type { EventApi } from '../event/event';
+import { endOfDay, eventEndDate, eventStartDate } from '../event/event';
 
 const UNCATEGORIZED_GROUP_ID = 'uncategorized';
 

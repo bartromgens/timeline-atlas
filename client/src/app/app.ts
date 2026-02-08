@@ -12,8 +12,8 @@ import {
 import { filter } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { MapComponent } from './map/map.component';
-import type { CategoryApi, EventApi } from './models/event';
-import { EventsService } from './services/events.service';
+import type { CategoryApi, EventApi } from './event/event';
+import { EventsService } from './event/events.service';
 import { TimelineComponent } from './timeline/timeline.component';
 
 @Component({

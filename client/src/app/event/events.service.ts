@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { EMPTY, Observable } from 'rxjs';
 import { expand, map, reduce } from 'rxjs/operators';
-import { CategoryApi, EventApi, EventsListResponse } from '../models/event';
+import { CategoryApi, EventApi, EventsListResponse } from './event';
 
 function parseCategoriesResponse(body: CategoryApi[] | { results?: CategoryApi[] }): CategoryApi[] {
   if (Array.isArray(body)) return body;

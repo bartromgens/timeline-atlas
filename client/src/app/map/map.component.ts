@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import * as L from 'leaflet';
 import { colorForCategory } from '../models/category-colors';
-import type { EventApi } from '../models/event';
+import type { EventApi } from '../event/event';
 
 const MIN_RADIUS_PX = 2.5;
 const MAX_RADIUS_PX = 22;

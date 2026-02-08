@@ -13,8 +13,8 @@ import {
 import { Timeline } from 'vis-timeline';
 import type { DataGroup } from 'vis-timeline';
 import { colorForCategory } from '../models/category-colors';
-import type { CategoryApi, EventApi } from '../models/event';
-import { eventEndDate, eventStartDate } from '../models/event';
+import type { CategoryApi, EventApi } from '../event/event';
+import { eventEndDate, eventStartDate } from '../event/event';
 import {
   eventsToTimelineItems,
   MIN_SPAN_MS,

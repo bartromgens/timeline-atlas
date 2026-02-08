@@ -8,8 +8,8 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import type { EventApi } from '../models/event';
-import { EventsService } from '../services/events.service';
+import type { EventApi } from '../event/event';
+import { EventsService } from '../event/events.service';
 
 export interface HistogramBucket {
   label: string;
