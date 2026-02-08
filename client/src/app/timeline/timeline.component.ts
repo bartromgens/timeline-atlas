@@ -41,7 +41,9 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('timelineContainer') timelineContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
   @Input() categories: CategoryApi[] = [];
+  @Input() highlightedEventId: number | null = null;
   @Output() timelineItemHover = new EventEmitter<number | null>();
+  @Output() timelineItemSelect = new EventEmitter<number>();
 
   settingsOpen = false;
   displayOptions: TimelineDisplayOptions = {
@@ -51,12 +53,17 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   };
 
   private timeline: Timeline | null = null;
+  private currentItemIds = new Set<number>();
   private rangeChangedHandler = (): void => this.updateItemsForWindow();
   private itemOverHandler = (props: { item: number | string }): void => {
     const id = typeof props.item === 'number' ? props.item : Number(props.item);
     this.timelineItemHover.emit(id);
   };
   private itemOutHandler = (): void => this.timelineItemHover.emit(null);
+  private itemClickHandler = (props: { item: number | string }): void => {
+    const id = typeof props.item === 'number' ? props.item : Number(props.item);
+    this.timelineItemSelect.emit(id);
+  };
 
   ngAfterViewInit(): void {
     const container = this.timelineContainer?.nativeElement;
@@ -64,6 +71,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.timeline = new Timeline(container, [], [], {
       editable: false,
+      selectable: true,
       zoomKey: 'ctrlKey',
       groupHeightMode: 'fitItems',
       stack: true,
@@ -79,12 +87,16 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.timeline.on('rangechanged', this.rangeChangedHandler);
     this.timeline.on('itemover', this.itemOverHandler);
     this.timeline.on('itemout', this.itemOutHandler);
+    this.timeline.on('click', this.itemClickHandler);
     this.applyEvents();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events'] || changes['categories']) {
       this.applyEvents();
+    }
+    if (changes['highlightedEventId']) {
+      this.scheduleApplySelection();
     }
   }
 
@@ -121,8 +133,10 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   private applyEvents(): void {
     if (!this.timeline) return;
     if (this.events.length === 0) {
+      this.currentItemIds.clear();
       this.timeline.setGroups([]);
       this.timeline.setItems([]);
+      this.scheduleApplySelection();
       return;
     }
     this.timeline.setGroups(this.buildGroups());
@@ -134,12 +148,14 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
         startMs: range.start.getTime(),
         endMs: range.end.getTime(),
       };
-      this.timeline.setItems(
-        eventsToTimelineItems(this.events, spanMs, visibleWindow, this.displayOptions),
-      );
+      const items = eventsToTimelineItems(this.events, spanMs, visibleWindow, this.displayOptions);
+      this.currentItemIds = new Set(items.map((i) => Number(i.id)));
+      this.timeline.setItems(items);
     } else {
+      this.currentItemIds.clear();
       this.timeline.setItems([]);
     }
+    this.scheduleApplySelection();
   }
 
   private eventDateRange(): { start: Date; end: Date } | null {
@@ -173,9 +189,29 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       startMs: window.start.getTime(),
       endMs: window.end.getTime(),
     };
-    this.timeline.setItems(
-      eventsToTimelineItems(this.events, visibleSpanMs, visibleWindow, this.displayOptions),
+    const items = eventsToTimelineItems(
+      this.events,
+      visibleSpanMs,
+      visibleWindow,
+      this.displayOptions,
     );
+    this.currentItemIds = new Set(items.map((i) => Number(i.id)));
+    this.timeline.setItems(items);
+    this.scheduleApplySelection();
+  }
+
+  private scheduleApplySelection(): void {
+    setTimeout(() => this.applySelection(), 0);
+  }
+
+  private applySelection(): void {
+    if (!this.timeline) return;
+    const id = this.highlightedEventId;
+    if (id != null && this.currentItemIds.has(id)) {
+      this.timeline.setSelection([id], { focus: true, animation: {} });
+    } else {
+      this.timeline.setSelection([]);
+    }
   }
 
   toggleSettings(): void {
@@ -192,6 +228,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.timeline.off('rangechanged', this.rangeChangedHandler);
       this.timeline.off('itemover', this.itemOverHandler);
       this.timeline.off('itemout', this.itemOutHandler);
+      this.timeline.off('click', this.itemClickHandler);
       this.timeline.destroy();
     }
     this.timeline = null;

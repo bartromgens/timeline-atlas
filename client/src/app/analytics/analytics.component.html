@@ -29,12 +29,7 @@
                   [attr.height]="barHeight"
                   class="chart-bar"
                 />
-                <text
-                  [attr.x]="x + w / 2"
-                  [attr.y]="212"
-                  class="chart-label"
-                  text-anchor="middle"
-                >
+                <text [attr.x]="x + w / 2" [attr.y]="212" class="chart-label" text-anchor="middle">
                   {{ bucket.label }}
                 </text>
                 @if (bucket.count > 0) {
@@ -84,12 +79,7 @@
                   [attr.height]="barHeight"
                   class="chart-bar chart-bar--pageviews"
                 />
-                <text
-                  [attr.x]="x + w / 2"
-                  [attr.y]="212"
-                  class="chart-label"
-                  text-anchor="middle"
-                >
+                <text [attr.x]="x + w / 2" [attr.y]="212" class="chart-label" text-anchor="middle">
                   {{ bucket.label }}
                 </text>
                 @if (bucket.count > 0) {
@@ -139,12 +129,7 @@
                   [attr.height]="barHeight"
                   class="chart-bar chart-bar--sitelinks"
                 />
-                <text
-                  [attr.x]="x + w / 2"
-                  [attr.y]="212"
-                  class="chart-label"
-                  text-anchor="middle"
-                >
+                <text [attr.x]="x + w / 2" [attr.y]="212" class="chart-label" text-anchor="middle">
                   {{ bucket.label }}
                 </text>
                 @if (bucket.count > 0) {
@@ -194,12 +179,7 @@
                   [attr.height]="barHeight"
                   class="chart-bar chart-bar--backlinks"
                 />
-                <text
-                  [attr.x]="x + w / 2"
-                  [attr.y]="212"
-                  class="chart-label"
-                  text-anchor="middle"
-                >
+                <text [attr.x]="x + w / 2" [attr.y]="212" class="chart-label" text-anchor="middle">
                   {{ bucket.label }}
                 </text>
                 @if (bucket.count > 0) {

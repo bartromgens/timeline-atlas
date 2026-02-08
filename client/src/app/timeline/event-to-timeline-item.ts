@@ -60,6 +60,9 @@ export const DEFAULT_MIN_VISIBLE_EVENTS = 30;
 export const DEFAULT_MAX_OVERLAPPING_EVENTS = 12;
 export const DEFAULT_SHORT_EVENT_FRACTION = 0.05;
 
+/** Hide events whose duration exceeds this multiple of the visible range. */
+const MAX_EVENT_SPAN_VISIBLE_RATIO = 3;
+
 export interface TimelineDisplayOptions {
   minVisibleEvents: number;
   maxOverlappingEvents: number;
@@ -169,9 +172,22 @@ export function eventsToTimelineItems(
       ? maxEventsForVisibleSpan(visibleSpanMs, minVisibleEvents)
       : events.length;
 
-  const pool = visibleWindow
+  const overlapping = visibleWindow
     ? events.filter((e) => eventOverlapsWindow(e, visibleWindow.startMs, visibleWindow.endMs))
     : events;
+
+  const maxEventSpanMs =
+    visibleSpanMs != null && visibleSpanMs > 0
+      ? MAX_EVENT_SPAN_VISIBLE_RATIO * visibleSpanMs
+      : Infinity;
+  const pool =
+    maxEventSpanMs < Infinity
+      ? overlapping.filter((e) => {
+          const range = timeRangeForEvent(e);
+          if (!range) return true;
+          return range.end - range.start <= maxEventSpanMs;
+        })
+      : overlapping;
 
   const minToShow = visibleWindow ? Math.min(minVisibleEvents, pool.length) : 0;
 

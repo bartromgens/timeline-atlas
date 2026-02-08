@@ -1,0 +1,46 @@
+<div class="event-details">
+  @if (event) {
+    <h2 class="event-details__title">{{ event.title }}</h2>
+    @if (dateLabel) {
+      <p class="event-details__date">{{ dateLabel }}</p>
+    }
+    @if (event.location_name) {
+      <p class="event-details__location">{{ event.location_name }}</p>
+    }
+    @if (isLoggedIn) {
+      <p class="event-details__meta">
+        Importance:
+        {{ event.importance_score != null ? (event.importance_score | number: '1.2-2') : '—' }}
+      </p>
+    }
+    @if (event.description) {
+      <div class="event-details__description">{{ event.description }}</div>
+    }
+    <div class="event-details__links">
+      @if (event.wikipedia_url) {
+        <a
+          [href]="event.wikipedia_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="event-details__link"
+        >
+          Wikipedia{{ event.wikipedia_title ? ': ' + event.wikipedia_title : '' }}
+        </a>
+      }
+      @if (event.wikidata_url) {
+        <a
+          [href]="event.wikidata_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="event-details__link"
+        >
+          Wikidata
+        </a>
+      }
+    </div>
+  } @else {
+    <p class="event-details__placeholder">
+      Select an event on the map or timeline to view details.
+    </p>
+  }
+</div>

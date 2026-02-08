@@ -1,12 +1,9 @@
-<mat-toolbar color="primary" role="banner">
+<mat-toolbar role="banner">
   <a routerLink="/" class="toolbar-title">{{ projectName }}</a>
   @if (!isAnalyticsPage) {
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-category">
       <mat-label>Category</mat-label>
-      <mat-select
-        [(ngModel)]="selectedCategoryValue"
-        (ngModelChange)="onCategoryChange()"
-      >
+      <mat-select [(ngModel)]="selectedCategoryValue" (ngModelChange)="onCategoryChange()">
         <mat-option value="">All</mat-option>
         @for (cat of (categories$ | async) ?? []; track cat.id) {
           <mat-option [value]="cat.id.toString()">{{ cat.name || cat.wikidata_id }}</mat-option>
@@ -26,11 +23,22 @@
       <app-timeline
         [events]="events"
         [categories]="(categories$ | async) ?? []"
+        [highlightedEventId]="selectedEventId"
         (timelineItemHover)="onTimelineItemHover($event)"
+        (timelineItemSelect)="onTimelineItemSelect($event)"
       />
     </div>
-    <div class="main-pane">
-      <app-map [events]="events" [highlightedEventId]="hoveredEventId" />
+    <div class="main-pane main-pane--map">
+      <div class="map-pane__details">
+        <app-event-details [event]="selectedEvent" [isLoggedIn]="(isLoggedIn$ | async) ?? false" />
+      </div>
+      <div class="map-pane__map">
+        <app-map
+          [events]="events"
+          [highlightedEventId]="hoveredEventId ?? selectedEventId"
+          (markerSelect)="onMapMarkerSelect($event)"
+        />
+      </div>
     </div>
   } @else {
     <div class="main-pane main-pane--full">
@@ -47,6 +55,11 @@
     padding: 0;
     height: 100vh;
     overflow: hidden;
+  }
+
+  mat-toolbar {
+    background: white;
+    color: rgba(0, 0, 0, 0.87);
   }
 
   .toolbar-title {
@@ -66,34 +79,6 @@
   .toolbar-category {
     margin-left: 1rem;
     min-width: 10rem;
-  }
-
-  mat-toolbar .toolbar-category.mat-mdc-form-field {
-    --mat-form-field-outlined-outline-color: rgba(255, 255, 255, 0.7);
-    --mat-form-field-outlined-hover-outline-color: #fff;
-    --mat-form-field-outlined-focus-outline-color: #fff;
-    --mat-form-field-outlined-label-text-color: rgba(255, 255, 255, 0.9);
-    --mat-form-field-outlined-focus-label-text-color: #fff;
-    --mat-form-field-outlined-hover-label-text-color: #fff;
-    --mat-form-field-outlined-input-text-color: #fff;
-    --mat-form-field-outlined-input-text-placeholder-color: rgba(255, 255, 255, 0.8);
-    --mat-form-field-trailing-icon-color: #fff;
-    --mat-form-field-enabled-select-arrow-color: #fff;
-  }
-
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-value,
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-value-text,
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mdc-floating-label,
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-arrow {
-    color: #fff;
-  }
-
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-notch-piece {
-    border-color: rgba(255, 255, 255, 0.7);
-  }
-
-  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-arrow svg {
-    fill: #fff;
   }
 
   .main {
@@ -121,5 +106,25 @@
   .main-pane--full {
     flex: 1 1 100%;
     min-width: 0;
+  }
+
+  .main-pane--map {
+    flex-direction: column;
+  }
+
+  .map-pane__details {
+    flex: 0 0 50%;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    background: #fafafa;
+  }
+
+  .map-pane__map {
+    flex: 1 1 50%;
+    min-height: 0;
+    overflow: hidden;
   }
 </style>

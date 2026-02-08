@@ -2,9 +2,11 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
 } from '@angular/core';
@@ -77,6 +79,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
   @Input() highlightedEventId: number | null = null;
+  @Output() markerSelect = new EventEmitter<number>();
 
   private map: L.Map | null = null;
   private circlesLayer: L.LayerGroup | null = null;
@@ -158,6 +161,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
         permanent: false,
         direction: 'top',
       });
+      circle.on('click', () => this.markerSelect.emit(event.id));
       this.circleDataByEventId.set(event.id, { circle, baseRadius: radius, color });
       this.circlesLayer!.addLayer(circle);
     }

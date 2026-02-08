@@ -41,7 +41,9 @@ function computeLinearBuckets(
   for (let i = 0; i < numBuckets; i++) {
     const min = lo + i * step;
     const max = i === numBuckets - 1 ? hi + 0.001 : lo + (i + 1) * step;
-    const count = filtered.filter((v) => v >= min && (i === numBuckets - 1 ? v <= max : v < max)).length;
+    const count = filtered.filter(
+      (v) => v >= min && (i === numBuckets - 1 ? v <= max : v < max),
+    ).length;
     buckets.push({ label: formatter(min, max), min, max, count });
   }
   return buckets;

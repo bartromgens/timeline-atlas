@@ -2,13 +2,7 @@ import { AsyncPipe } from '@angular/common';
 import { ChangeDetectorRef, Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import {
-  ActivatedRoute,
-  NavigationEnd,
-  Router,
-  RouterLink,
-  RouterOutlet,
-} from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,7 +10,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { filter } from 'rxjs/operators';
 import { Observable } from 'rxjs';
+import { EventDetailsComponent } from './event-details/event-details.component';
 import { MapComponent } from './map/map.component';
+import { AuthService } from './auth/auth.service';
 import type { CategoryApi, EventApi } from './event/event';
 import { EventsService } from './event/events.service';
 import { TimelineComponent } from './timeline/timeline.component';
@@ -30,6 +26,7 @@ import { TimelineComponent } from './timeline/timeline.component';
     RouterOutlet,
     TimelineComponent,
     MapComponent,
+    EventDetailsComponent,
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
@@ -45,10 +42,13 @@ export class App implements OnInit {
   selectedCategoryValue = '';
   events: EventApi[] = [];
   hoveredEventId: number | null = null;
+  selectedEventId: number | null = null;
   isAnalyticsPage = false;
+  isLoggedIn$ = this.authService.isLoggedIn$;
 
   constructor(
     private eventsService: EventsService,
+    private authService: AuthService,
     private destroyRef: DestroyRef,
     private cdr: ChangeDetectorRef,
     private route: ActivatedRoute,
@@ -67,6 +67,7 @@ export class App implements OnInit {
   }
 
   ngOnInit(): void {
+    this.authService.checkAuth();
     this.isAnalyticsPage = this.router.url.includes('/analytics');
     const categoryParam = this.route.snapshot.queryParamMap.get('category');
     if (categoryParam != null && categoryParam !== '') {
@@ -91,6 +92,19 @@ export class App implements OnInit {
 
   onTimelineItemHover(eventId: number | null): void {
     this.hoveredEventId = eventId;
+  }
+
+  onMapMarkerSelect(eventId: number): void {
+    this.selectedEventId = this.selectedEventId === eventId ? null : eventId;
+  }
+
+  onTimelineItemSelect(eventId: number): void {
+    this.selectedEventId = this.selectedEventId === eventId ? null : eventId;
+  }
+
+  get selectedEvent(): EventApi | null {
+    if (this.selectedEventId == null) return null;
+    return this.events.find((e) => e.id === this.selectedEventId) ?? null;
   }
 
   onCategoryChange(): void {
@@ -122,6 +136,7 @@ export class App implements OnInit {
         next: (events) => {
           if (requestId === this.loadRequestId) {
             this.events = events;
+            this.selectedEventId = null;
             this.cdr.detectChanges();
           }
         },
