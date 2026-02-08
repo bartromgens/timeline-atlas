@@ -79,6 +79,7 @@ class EventAdmin(admin.ModelAdmin):
         "date_start_end",
         "location_name",
         "has_coords",
+        "has_extract",
         "importance_score",
         "sitelink_count",
         "pageviews_30d",
@@ -163,6 +164,10 @@ class EventAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description="Coords")
     def has_coords(self, obj: Event) -> bool:
         return obj.location_lat is not None and obj.location_lon is not None
+
+    @admin.display(boolean=True, description="Extract")
+    def has_extract(self, obj: Event) -> bool:
+        return bool(obj.wikipedia_extract and obj.wikipedia_extract.strip())
 
     @admin.display(description="Wikidata")
     def wikidata_link(self, obj: Event) -> str:

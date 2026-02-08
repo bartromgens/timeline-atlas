@@ -20,6 +20,7 @@ import {
   MIN_SPAN_MS,
   type VisibleWindow,
   type TimelineDisplayOptions,
+  DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
   DEFAULT_MAX_OVERLAPPING_EVENTS,
   DEFAULT_MIN_VISIBLE_EVENTS,
   DEFAULT_SHORT_EVENT_FRACTION,
@@ -50,6 +51,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
     minVisibleEvents: DEFAULT_MIN_VISIBLE_EVENTS,
     maxOverlappingEvents: DEFAULT_MAX_OVERLAPPING_EVENTS,
     shortEventFraction: DEFAULT_SHORT_EVENT_FRACTION,
+    maxEventSpanVisibleRatio: DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
   };
 
   private timeline: Timeline | null = null;
@@ -208,7 +210,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (!this.timeline) return;
     const id = this.highlightedEventId;
     if (id != null && this.currentItemIds.has(id)) {
-      this.timeline.setSelection([id], { focus: true, animation: {} });
+      this.timeline.setSelection([id]);
     } else {
       this.timeline.setSelection([]);
     }

@@ -79,6 +79,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('mapContainer') mapContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
   @Input() highlightedEventId: number | null = null;
+  @Input() selectedEventId: number | null = null;
   @Output() markerSelect = new EventEmitter<number>();
 
   private map: L.Map | null = null;
@@ -104,9 +105,27 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events'] && this.circlesLayer) {
       this.drawEvents(this.events);
-    } else if (changes['highlightedEventId']) {
+    }
+    if (changes['highlightedEventId']) {
       this.applyHighlight();
     }
+    if (changes['selectedEventId'] && this.selectedEventId != null && this.map) {
+      this.centerOnEvent(this.selectedEventId);
+    }
+  }
+
+  private centerOnEvent(eventId: number): void {
+    const event = this.events.find((e) => e.id === eventId);
+    if (
+      !event ||
+      event.location_lat == null ||
+      event.location_lon == null ||
+      !Number.isFinite(event.location_lat) ||
+      !Number.isFinite(event.location_lon)
+    ) {
+      return;
+    }
+    this.map!.panTo([event.location_lat, event.location_lon]);
   }
 
   private applyHighlight(): void {

@@ -44,7 +44,7 @@ export class App implements OnInit {
   hoveredEventId: number | null = null;
   selectedEventId: number | null = null;
   isAnalyticsPage = false;
-  isLoggedIn$ = this.authService.isLoggedIn$;
+  isLoggedIn$: Observable<boolean>;
 
   constructor(
     private eventsService: EventsService,
@@ -54,6 +54,7 @@ export class App implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
   ) {
+    this.isLoggedIn$ = this.authService.isLoggedIn$;
     this.categories$ = this.eventsService.getCategories();
     this.router.events
       .pipe(

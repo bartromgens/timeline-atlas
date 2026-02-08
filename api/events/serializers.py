@@ -33,6 +33,7 @@ class EventSerializer(serializers.ModelSerializer):
             "wikidata_url",
             "wikipedia_url",
             "wikipedia_title",
+            "wikipedia_extract",
             "sitelink_count",
             "pageviews_30d",
             "backlink_count",

@@ -16,6 +16,12 @@
     @if (event.description) {
       <div class="event-details__description">{{ event.description }}</div>
     }
+    @if (event.wikipedia_extract) {
+      <div class="event-details__wikipedia">
+        <p class="event-details__wikipedia-label">From Wikipedia</p>
+        <p class="event-details__wikipedia-extract">{{ event.wikipedia_extract }}</p>
+      </div>
+    }
     <div class="event-details__links">
       @if (event.wikipedia_url) {
         <a

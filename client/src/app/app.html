@@ -36,6 +36,7 @@
         <app-map
           [events]="events"
           [highlightedEventId]="hoveredEventId ?? selectedEventId"
+          [selectedEventId]="selectedEventId"
           (markerSelect)="onMapMarkerSelect($event)"
         />
       </div>

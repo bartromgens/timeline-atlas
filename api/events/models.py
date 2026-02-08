@@ -60,6 +60,7 @@ class Event(models.Model):
     wikidata_url = models.URLField(max_length=500, blank=True)
     wikipedia_url = models.URLField(max_length=500, blank=True)
     wikipedia_title = models.CharField(max_length=500, blank=True)
+    wikipedia_extract = models.TextField(blank=True)
 
     sitelink_count = models.PositiveIntegerField(default=0)
     pageviews_30d = models.PositiveIntegerField(default=0)

@@ -32,6 +32,7 @@ export interface EventApi {
   wikidata_url: string;
   wikipedia_url: string;
   wikipedia_title: string;
+  wikipedia_extract: string;
   sitelink_count: number;
   pageviews_30d: number;
   backlink_count: number;

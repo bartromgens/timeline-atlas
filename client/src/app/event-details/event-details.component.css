@@ -31,6 +31,25 @@
   word-break: break-word;
 }
 
+.event-details__wikipedia {
+  margin: 0.5rem 0;
+}
+
+.event-details__wikipedia-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.event-details__wikipedia-extract {
+  margin: 0;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .event-details__links {
   margin-top: 0.75rem;
   display: flex;

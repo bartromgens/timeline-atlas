@@ -42,4 +42,18 @@
       (ngModelChange)="onShortEventFractionPercentChange($event)"
     />
   </div>
+  <div class="setting">
+    <label class="setting-label">
+      <span>Max event span (× visible range)</span>
+      <span class="setting-value">{{ options.maxEventSpanVisibleRatio }}</span>
+    </label>
+    <input
+      type="range"
+      class="setting-slider"
+      [min]="maxEventSpanVisibleRatioMin"
+      [max]="maxEventSpanVisibleRatioMax"
+      [ngModel]="options.maxEventSpanVisibleRatio"
+      (ngModelChange)="onMaxEventSpanVisibleRatioChange($event)"
+    />
+  </div>
 </div>
