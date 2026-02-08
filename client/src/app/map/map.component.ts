@@ -14,6 +14,13 @@ import * as L from 'leaflet';
 import { colorForCategory } from '../models/category-colors';
 import type { EventApi } from '../event/event';
 
+export interface MapBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
 const MIN_RADIUS_PX = 2.5;
 const MAX_RADIUS_PX = 22;
 const IMPORTANCE_RADIUS_EXPONENT = 4;
@@ -81,6 +88,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() highlightedEventId: number | null = null;
   @Input() selectedEventId: number | null = null;
   @Output() markerSelect = new EventEmitter<number>();
+  @Output() boundsChange = new EventEmitter<MapBounds>();
 
   private map: L.Map | null = null;
   private circlesLayer: L.LayerGroup | null = null;
@@ -99,7 +107,21 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     }).addTo(this.map);
 
     this.circlesLayer = L.layerGroup().addTo(this.map);
+    this.map.on('moveend', () => this.emitBounds());
+    this.map.on('zoomend', () => this.emitBounds());
     this.drawEvents(this.events);
+    this.emitBounds();
+  }
+
+  private emitBounds(): void {
+    if (!this.map) return;
+    const b = this.map.getBounds();
+    this.boundsChange.emit({
+      north: b.getNorth(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      west: b.getWest(),
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {

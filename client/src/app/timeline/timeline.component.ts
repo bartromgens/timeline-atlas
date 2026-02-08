@@ -20,11 +20,13 @@ import {
   MIN_SPAN_MS,
   type VisibleWindow,
   type TimelineDisplayOptions,
+  DEFAULT_FILTER_BY_VISIBLE_MAP_AREA,
   DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
   DEFAULT_MAX_OVERLAPPING_EVENTS,
   DEFAULT_MIN_VISIBLE_EVENTS,
   DEFAULT_SHORT_EVENT_FRACTION,
 } from './event-to-timeline-item';
+import type { MapBounds } from '../map/map.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { TimelineSettingsComponent } from './timeline-settings.component';
@@ -42,6 +44,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('timelineContainer') timelineContainer!: ElementRef<HTMLElement>;
   @Input() events: EventApi[] = [];
   @Input() categories: CategoryApi[] = [];
+  @Input() mapBounds: MapBounds | null = null;
   @Input() highlightedEventId: number | null = null;
   @Output() timelineItemHover = new EventEmitter<number | null>();
   @Output() timelineItemSelect = new EventEmitter<number>();
@@ -52,6 +55,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
     maxOverlappingEvents: DEFAULT_MAX_OVERLAPPING_EVENTS,
     shortEventFraction: DEFAULT_SHORT_EVENT_FRACTION,
     maxEventSpanVisibleRatio: DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
+    filterByVisibleMapArea: DEFAULT_FILTER_BY_VISIBLE_MAP_AREA,
   };
 
   private timeline: Timeline | null = null;
@@ -96,10 +100,38 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['events'] || changes['categories']) {
       this.applyEvents();
+    } else if (changes['mapBounds']) {
+      this.updateItemsForWindow();
     }
     if (changes['highlightedEventId']) {
       this.scheduleApplySelection();
     }
+  }
+
+  private eventsForTimeline(): EventApi[] {
+    if (
+      !this.displayOptions.filterByVisibleMapArea ||
+      this.mapBounds == null
+    ) {
+      return this.events;
+    }
+    const b = this.mapBounds;
+    return this.events.filter((e) => {
+      if (
+        e.location_lat == null ||
+        e.location_lon == null ||
+        !Number.isFinite(e.location_lat) ||
+        !Number.isFinite(e.location_lon)
+      ) {
+        return false;
+      }
+      return (
+        e.location_lat >= b.south &&
+        e.location_lat <= b.north &&
+        e.location_lon >= b.west &&
+        e.location_lon <= b.east
+      );
+    });
   }
 
   private buildGroups(): DataGroup[] {
@@ -134,6 +166,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private applyEvents(): void {
     if (!this.timeline) return;
+    const filtered = this.eventsForTimeline();
     if (this.events.length === 0) {
       this.currentItemIds.clear();
       this.timeline.setGroups([]);
@@ -150,7 +183,12 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
         startMs: range.start.getTime(),
         endMs: range.end.getTime(),
       };
-      const items = eventsToTimelineItems(this.events, spanMs, visibleWindow, this.displayOptions);
+      const items = eventsToTimelineItems(
+        filtered,
+        spanMs,
+        visibleWindow,
+        this.displayOptions,
+      );
       this.currentItemIds = new Set(items.map((i) => Number(i.id)));
       this.timeline.setItems(items);
     } else {
@@ -184,6 +222,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private updateItemsForWindow(): void {
+    const filtered = this.eventsForTimeline();
     if (!this.timeline || this.events.length === 0) return;
     const window = this.timeline.getWindow();
     const visibleSpanMs = window.end.getTime() - window.start.getTime();
@@ -192,7 +231,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       endMs: window.end.getTime(),
     };
     const items = eventsToTimelineItems(
-      this.events,
+      filtered,
       visibleSpanMs,
       visibleWindow,
       this.displayOptions,

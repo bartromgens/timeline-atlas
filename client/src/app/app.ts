@@ -11,7 +11,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { filter } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { EventDetailsComponent } from './event-details/event-details.component';
-import { MapComponent } from './map/map.component';
+import { MapComponent, type MapBounds } from './map/map.component';
 import { AuthService } from './auth/auth.service';
 import type { CategoryApi, EventApi } from './event/event';
 import { EventsService } from './event/events.service';
@@ -41,6 +41,7 @@ export class App implements OnInit {
   /** Bound to the select; '' = All, otherwise category id as string */
   selectedCategoryValue = '';
   events: EventApi[] = [];
+  mapBounds: MapBounds | null = null;
   hoveredEventId: number | null = null;
   selectedEventId: number | null = null;
   isAnalyticsPage = false;

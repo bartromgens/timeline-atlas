@@ -63,11 +63,14 @@ export const DEFAULT_SHORT_EVENT_FRACTION = 0.05;
 /** Hide events whose duration exceeds this multiple of the visible range. */
 export const DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO = 3;
 
+export const DEFAULT_FILTER_BY_VISIBLE_MAP_AREA = false;
+
 export interface TimelineDisplayOptions {
   minVisibleEvents: number;
   maxOverlappingEvents: number;
   shortEventFraction: number;
   maxEventSpanVisibleRatio: number;
+  filterByVisibleMapArea: boolean;
 }
 
 export interface VisibleWindow {

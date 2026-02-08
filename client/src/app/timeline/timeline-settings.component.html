@@ -1,5 +1,15 @@
 <div class="settings-panel">
   <h3 class="settings-title">Timeline display</h3>
+  <div class="setting setting--toggle">
+    <label class="setting-label setting-label--toggle">
+      <span>Filter by visible map area</span>
+      <input
+        type="checkbox"
+        [ngModel]="options.filterByVisibleMapArea"
+        (ngModelChange)="onFilterByVisibleMapAreaChange($event)"
+      />
+    </label>
+  </div>
   <div class="setting">
     <label class="setting-label">
       <span>Min visible events</span>

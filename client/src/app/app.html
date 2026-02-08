@@ -23,6 +23,7 @@
       <app-timeline
         [events]="events"
         [categories]="(categories$ | async) ?? []"
+        [mapBounds]="mapBounds"
         [highlightedEventId]="selectedEventId"
         (timelineItemHover)="onTimelineItemHover($event)"
         (timelineItemSelect)="onTimelineItemSelect($event)"
@@ -38,6 +39,7 @@
           [highlightedEventId]="hoveredEventId ?? selectedEventId"
           [selectedEventId]="selectedEventId"
           (markerSelect)="onMapMarkerSelect($event)"
+          (boundsChange)="mapBounds = $event"
         />
       </div>
     </div>

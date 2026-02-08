@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import type { TimelineDisplayOptions } from './event-to-timeline-item';
 import {
+  DEFAULT_FILTER_BY_VISIBLE_MAP_AREA,
   DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
   DEFAULT_MAX_OVERLAPPING_EVENTS,
   DEFAULT_MIN_VISIBLE_EVENTS,
@@ -21,6 +22,7 @@ export class TimelineSettingsComponent {
     maxOverlappingEvents: DEFAULT_MAX_OVERLAPPING_EVENTS,
     shortEventFraction: DEFAULT_SHORT_EVENT_FRACTION,
     maxEventSpanVisibleRatio: DEFAULT_MAX_EVENT_SPAN_VISIBLE_RATIO,
+    filterByVisibleMapArea: DEFAULT_FILTER_BY_VISIBLE_MAP_AREA,
   };
   @Output() optionsChange = new EventEmitter<TimelineDisplayOptions>();
 
@@ -52,6 +54,10 @@ export class TimelineSettingsComponent {
 
   onMaxEventSpanVisibleRatioChange(value: number): void {
     this.emit({ ...this.options, maxEventSpanVisibleRatio: value });
+  }
+
+  onFilterByVisibleMapAreaChange(value: boolean): void {
+    this.emit({ ...this.options, filterByVisibleMapArea: value });
   }
 
   private emit(next: TimelineDisplayOptions): void {
