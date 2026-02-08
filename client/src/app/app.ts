@@ -37,7 +37,6 @@ import { TimelineComponent } from './timeline/timeline.component';
     MatSelectModule,
   ],
   templateUrl: './app.html',
-  styleUrl: './app.css',
 })
 export class App implements OnInit {
   readonly projectName = 'Timeline Atlas';

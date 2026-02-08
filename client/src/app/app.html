@@ -68,14 +68,32 @@
     min-width: 10rem;
   }
 
-  mat-toolbar .toolbar-category .mat-mdc-form-field {
-    --mdc-outlined-text-field-outline-color: rgba(255, 255, 255, 0.5);
-    --mdc-outlined-text-field-label-text-color: rgba(255, 255, 255, 0.9);
-    --mdc-outlined-text-field-input-text-color: #fff;
+  mat-toolbar .toolbar-category.mat-mdc-form-field {
+    --mat-form-field-outlined-outline-color: rgba(255, 255, 255, 0.7);
+    --mat-form-field-outlined-hover-outline-color: #fff;
+    --mat-form-field-outlined-focus-outline-color: #fff;
+    --mat-form-field-outlined-label-text-color: rgba(255, 255, 255, 0.9);
+    --mat-form-field-outlined-focus-label-text-color: #fff;
+    --mat-form-field-outlined-hover-label-text-color: #fff;
+    --mat-form-field-outlined-input-text-color: #fff;
+    --mat-form-field-outlined-input-text-placeholder-color: rgba(255, 255, 255, 0.8);
+    --mat-form-field-trailing-icon-color: #fff;
+    --mat-form-field-enabled-select-arrow-color: #fff;
   }
 
-  mat-toolbar .toolbar-category .mat-mdc-form-field .mat-mdc-select-value {
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-value,
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-value-text,
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mdc-floating-label,
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-arrow {
     color: #fff;
+  }
+
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-notch-piece {
+    border-color: rgba(255, 255, 255, 0.7);
+  }
+
+  mat-toolbar .toolbar-category.mat-mdc-form-field .mat-mdc-select-arrow svg {
+    fill: #fff;
   }
 
   .main {
