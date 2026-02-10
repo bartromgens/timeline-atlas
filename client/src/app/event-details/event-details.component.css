@@ -17,6 +17,15 @@
   line-height: 1.3;
 }
 
+.event-details__title-link {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.event-details__title-link:hover {
+  text-decoration: underline;
+}
+
 .event-details__date,
 .event-details__location,
 .event-details__meta {

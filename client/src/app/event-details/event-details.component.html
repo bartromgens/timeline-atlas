@@ -1,6 +1,17 @@
 <div class="event-details">
   @if (event) {
-    <h2 class="event-details__title">{{ event.title }}</h2>
+    <h2 class="event-details__title">
+      @if (event.wikipedia_url) {
+        <a
+          [href]="event.wikipedia_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="event-details__title-link"
+        >{{ event.title }}</a>
+      } @else {
+        {{ event.title }}
+      }
+    </h2>
     @if (dateLabel) {
       <p class="event-details__date">{{ dateLabel }}</p>
     }
