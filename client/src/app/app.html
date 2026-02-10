@@ -11,6 +11,15 @@
         }
       </mat-select>
     </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="toolbar-event-type">
+      <mat-label>Event type</mat-label>
+      <mat-select [(ngModel)]="selectedEventTypeValue" (ngModelChange)="onEventTypeChange()">
+        <mat-option value="">All</mat-option>
+        @for (et of (eventTypes$ | async) ?? []; track et.id) {
+          <mat-option [value]="et.id.toString()">{{ et.name || et.wikidata_id }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
   }
   <span class="toolbar-spacer"></span>
   <a mat-icon-button routerLink="/analytics" title="Analytics" aria-label="Open analytics">
@@ -82,7 +91,8 @@
     flex: 1 1 auto;
   }
 
-  .toolbar-category {
+  .toolbar-category,
+  .toolbar-event-type {
     margin-left: 2.5rem;
     min-width: 10rem;
   }

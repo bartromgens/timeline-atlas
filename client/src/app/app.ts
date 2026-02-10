@@ -13,7 +13,7 @@ import { Observable } from 'rxjs';
 import { EventDetailsComponent } from './event-details/event-details.component';
 import { MapComponent, type MapBounds } from './map/map.component';
 import { AuthService } from './auth/auth.service';
-import type { CategoryApi, EventApi } from './event/event';
+import type { CategoryApi, EventApi, EventTypeApi } from './event/event';
 import { EventsService } from './event/events.service';
 import { DEFAULT_FILTER_BY_VISIBLE_MAP_AREA } from './timeline/event-to-timeline-item';
 import { TimelineComponent } from './timeline/timeline.component';
@@ -39,8 +39,11 @@ import { TimelineComponent } from './timeline/timeline.component';
 export class App implements OnInit {
   readonly projectName = 'Timeline Atlas';
   categories$: Observable<CategoryApi[]>;
+  eventTypes$: Observable<EventTypeApi[]>;
   /** Bound to the select; '' = All, 'uncategorized' = no category, else category id */
   selectedCategoryValue = '';
+  /** Bound to the event type select; '' = All, else event type id */
+  selectedEventTypeValue = '';
   events: EventApi[] = [];
   mapBounds: MapBounds | null = null;
   hoveredEventId: number | null = null;
@@ -59,6 +62,7 @@ export class App implements OnInit {
   ) {
     this.isLoggedIn$ = this.authService.isLoggedIn$;
     this.categories$ = this.eventsService.getCategories();
+    this.eventTypes$ = this.eventsService.getEventTypes();
     this.router.events
       .pipe(
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
@@ -77,18 +81,36 @@ export class App implements OnInit {
     if (categoryParam != null && categoryParam !== '') {
       this.selectedCategoryValue = categoryParam;
     }
-    this.loadEvents(this.selectedCategoryFilter());
+    const eventTypeParam = this.route.snapshot.queryParamMap.get('event_type');
+    if (eventTypeParam != null && eventTypeParam !== '') {
+      this.selectedEventTypeValue = eventTypeParam;
+    }
+    this.loadEvents(this.selectedCategoryFilter(), this.selectedEventTypeFilter());
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const categoryParam = params.get('category');
+      const eventTypeParam = params.get('event_type');
+      let categoryChanged = false;
+      let eventTypeChanged = false;
       if (categoryParam != null && categoryParam !== '') {
         if (categoryParam !== this.selectedCategoryValue) {
           this.selectedCategoryValue = categoryParam;
-          this.loadEvents(this.selectedCategoryFilter());
-          this.cdr.detectChanges();
+          categoryChanged = true;
         }
       } else if (this.selectedCategoryValue !== '') {
         this.selectedCategoryValue = '';
-        this.loadEvents(null);
+        categoryChanged = true;
+      }
+      if (eventTypeParam != null && eventTypeParam !== '') {
+        if (eventTypeParam !== this.selectedEventTypeValue) {
+          this.selectedEventTypeValue = eventTypeParam;
+          eventTypeChanged = true;
+        }
+      } else if (this.selectedEventTypeValue !== '') {
+        this.selectedEventTypeValue = '';
+        eventTypeChanged = true;
+      }
+      if (categoryChanged || eventTypeChanged) {
+        this.loadEvents(this.selectedCategoryFilter(), this.selectedEventTypeFilter());
         this.cdr.detectChanges();
       }
     });
@@ -119,13 +141,23 @@ export class App implements OnInit {
   }
 
   onCategoryChange(): void {
-    const filter = this.selectedCategoryFilter();
-    this.loadEvents(filter);
+    this.loadEvents(this.selectedCategoryFilter(), this.selectedEventTypeFilter());
+    this.updateQueryParams();
+  }
+
+  onEventTypeChange(): void {
+    this.loadEvents(this.selectedCategoryFilter(), this.selectedEventTypeFilter());
+    this.updateQueryParams();
+  }
+
+  private updateQueryParams(): void {
     const categoryParam =
       this.selectedCategoryValue === '' ? null : this.selectedCategoryValue;
+    const eventTypeParam =
+      this.selectedEventTypeValue === '' ? null : this.selectedEventTypeValue;
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { category: categoryParam },
+      queryParams: { category: categoryParam, event_type: eventTypeParam },
       queryParamsHandling: '',
       replaceUrl: true,
     });
@@ -140,14 +172,23 @@ export class App implements OnInit {
     return Number.isNaN(n) ? null : n;
   }
 
+  /** Parse current event type select value for API: null = All, else event type id. */
+  private selectedEventTypeFilter(): number | null {
+    const v = this.selectedEventTypeValue;
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return Number.isNaN(n) ? null : n;
+  }
+
   private loadRequestId = 0;
 
   private loadEvents(
-    filter: number | null | 'uncategorized',
+    categoryFilter: number | null | 'uncategorized',
+    eventTypeFilter: number | null = null,
   ): void {
     const requestId = ++this.loadRequestId;
     this.eventsService
-      .getEvents(filter)
+      .getEvents(categoryFilter, eventTypeFilter)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (events) => {

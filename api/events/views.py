@@ -43,4 +43,10 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
                     qs = qs.filter(category_id=int(raw))
                 except (TypeError, ValueError):
                     pass
+        raw_type = self.request.query_params.get("event_type")
+        if raw_type not in (None, ""):
+            try:
+                qs = qs.filter(event_type_id=int(raw_type))
+            except (TypeError, ValueError):
+                pass
         return qs

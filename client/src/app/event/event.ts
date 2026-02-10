@@ -9,6 +9,12 @@ export interface CategoryApi {
   wikidata_id: string;
 }
 
+export interface EventTypeApi {
+  id: number;
+  name: string;
+  wikidata_id: string;
+}
+
 export interface EventsListResponse {
   count: number;
   next: string | null;
@@ -19,6 +25,7 @@ export interface EventsListResponse {
 export interface EventApi {
   id: number;
   category_id: number | null;
+  event_type_id: number | null;
   title: string;
   description: string;
   point_in_time: EventTimeValue | null;
