@@ -340,6 +340,18 @@ LIMIT {limit}
                 return (v, p)
         return (None, None)
 
+    @staticmethod
+    def _pick_primary_location(rows: list[dict]) -> tuple[str | None, str | None]:
+        """Pick (location_qid, location_name) from rows; uses first P276 location."""
+        for r in rows:
+            uri = WikidataSparqlClient._get_val(r, "location")
+            if uri:
+                qid = extract_wikidata_id(uri) or ""
+                if qid:
+                    label = WikidataSparqlClient._get_val(r, "locationLabel")
+                    return (qid, label or None)
+        return (None, None)
+
     def _parse_bindings(self, rows: list[dict]) -> list[dict]:
         by_qid: dict[str, list[dict]] = {}
         for row in rows:
@@ -376,7 +388,7 @@ LIMIT {limit}
             r0 = qid_rows[0]
             article_val = self._get_val(r0, "article")
             wikidata_url = f"https://www.wikidata.org/wiki/{qid}" if qid else None
-            location_qid = extract_wikidata_id(self._get_val(r0, "location") or "")
+            location_qid, location_name = self._pick_primary_location(qid_rows)
             sitelinks_val = self._get_val(r0, "sitelinks")
             sitelink_count = 0
             if sitelinks_val:
@@ -393,8 +405,8 @@ LIMIT {limit}
                     "point_in_time": point_in_time,
                     "start_time": start_time,
                     "end_time": end_time,
-                    "location_name": self._get_val(r0, "locationLabel"),
-                    "location_qid": location_qid or None,
+                    "location_name": location_name,
+                    "location_qid": location_qid,
                     "location_lat": None,
                     "location_lon": None,
                     "wikipedia_url": article_val,
