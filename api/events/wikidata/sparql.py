@@ -291,6 +291,9 @@ LIMIT {limit}
                 if http_err is None:
                     raise
                 if http_err.code == 429:
+                    logger.warning(
+                        "Too many requests (429) from Wikidata SPARQL endpoint"
+                    )
                     seconds = DEFAULT_RETRY_SECONDS
                     ra = http_err.headers.get("Retry-After")
                     if ra is not None:
@@ -303,6 +306,9 @@ LIMIT {limit}
                     else:
                         raise
                 elif http_err.code == 403:
+                    logger.warning(
+                        "Too many requests (403 rate limit) from Wikidata SPARQL"
+                    )
                     raise RuntimeError(
                         "Wikidata returned 403 (rate limit abuse). Wait before retrying."
                     ) from e

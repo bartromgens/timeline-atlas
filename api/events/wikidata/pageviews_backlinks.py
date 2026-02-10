@@ -15,9 +15,9 @@ PAGEVIEWS_BASE = (
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 BACKLINKS_LIMIT = 500
 USER_AGENT = "TimelineAtlas/1.0 (Python; timeline-atlas)"
-REQUEST_DELAY_SECONDS = 0.5
+REQUEST_DELAY_SECONDS = 0.35
 MAX_429_RETRIES = 3
-BACKOFF_429_SECONDS = 15
+BACKOFF_429_SECONDS = 10.5
 
 
 def _request_with_429_retry(url: str) -> bytes:
@@ -27,14 +27,20 @@ def _request_with_429_retry(url: str) -> bytes:
             with urlopen(req, timeout=15) as resp:
                 return resp.read()
         except HTTPError as e:
-            if e.code == 429 and attempt < MAX_429_RETRIES - 1:
-                logger.info(
-                    "Rate limited (429), waiting %ds before retry %d/%d",
-                    BACKOFF_429_SECONDS,
-                    attempt + 2,
-                    MAX_429_RETRIES,
+            if e.code == 429:
+                logger.warning(
+                    "Too many requests (429) from Wikimedia/Wikipedia API: %s", url
                 )
-                time.sleep(BACKOFF_429_SECONDS)
+                if attempt < MAX_429_RETRIES - 1:
+                    logger.info(
+                        "Rate limited (429), waiting %ds before retry %d/%d",
+                        BACKOFF_429_SECONDS,
+                        attempt + 2,
+                        MAX_429_RETRIES,
+                    )
+                    time.sleep(BACKOFF_429_SECONDS)
+                else:
+                    raise
             else:
                 raise
     return b""

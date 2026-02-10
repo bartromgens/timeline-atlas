@@ -10,7 +10,7 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 WIKIPEDIA_REST_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary"
-REQUEST_DELAY_SECONDS = 0.5
+REQUEST_DELAY_SECONDS = 0.35
 REQUEST_TIMEOUT = 15
 
 
@@ -53,5 +53,14 @@ def fetch_wikipedia_extract(wikipedia_url: str) -> str | None:
             return extract.strip()
         return None
     except (HTTPError, OSError, json.JSONDecodeError, KeyError) as e:
-        logger.warning("Failed to fetch Wikipedia extract for %s: %s", wikipedia_url, e)
+        if isinstance(e, HTTPError) and e.code in (429, 403):
+            logger.warning(
+                "Too many requests (%s) from Wikipedia API for %s",
+                e.code,
+                wikipedia_url,
+            )
+        else:
+            logger.warning(
+                "Failed to fetch Wikipedia extract for %s: %s", wikipedia_url, e
+            )
         return None
