@@ -101,7 +101,7 @@
   }
 
   .main-pane {
-    flex: 1 1 0;
+    flex: 1 1 60%;
     min-height: 0;
     min-width: 0;
     display: flex;
@@ -109,13 +109,14 @@
     overflow: hidden;
   }
 
+  .main-pane--map {
+    flex: 1 1 40%;
+    flex-direction: column;
+  }
+
   .main-pane--full {
     flex: 1 1 100%;
     min-width: 0;
-  }
-
-  .main-pane--map {
-    flex-direction: column;
   }
 
   .map-pane__details {
