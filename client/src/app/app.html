@@ -27,6 +27,7 @@
         [highlightedEventId]="selectedEventId"
         (timelineItemHover)="onTimelineItemHover($event)"
         (timelineItemSelect)="onTimelineItemSelect($event)"
+        (filterByVisibleMapAreaChange)="filterByVisibleMapArea = $event"
       />
     </div>
     <div class="main-pane main-pane--map">
@@ -38,6 +39,7 @@
           [events]="events"
           [highlightedEventId]="hoveredEventId ?? selectedEventId"
           [selectedEventId]="selectedEventId"
+          [centerOnSelection]="!filterByVisibleMapArea"
           (markerSelect)="onMapMarkerSelect($event)"
           (boundsChange)="mapBounds = $event"
         />
@@ -116,7 +118,7 @@
   }
 
   .map-pane__details {
-    flex: 0 0 50%;
+    flex: 0 0 40%;
     min-height: 0;
     overflow: hidden;
     border: 1px solid #e0e0e0;
@@ -126,7 +128,7 @@
   }
 
   .map-pane__map {
-    flex: 1 1 50%;
+    flex: 1 1 60%;
     min-height: 0;
     overflow: hidden;
   }

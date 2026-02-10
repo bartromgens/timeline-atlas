@@ -48,6 +48,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() highlightedEventId: number | null = null;
   @Output() timelineItemHover = new EventEmitter<number | null>();
   @Output() timelineItemSelect = new EventEmitter<number>();
+  @Output() filterByVisibleMapAreaChange = new EventEmitter<boolean>();
 
   settingsOpen = false;
   displayOptions: TimelineDisplayOptions = {
@@ -261,6 +262,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   onDisplayOptionsChange(options: TimelineDisplayOptions): void {
     this.displayOptions = options;
+    this.filterByVisibleMapAreaChange.emit(options.filterByVisibleMapArea);
     this.updateItemsForWindow();
   }
 

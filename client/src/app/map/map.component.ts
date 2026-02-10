@@ -87,6 +87,7 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() events: EventApi[] = [];
   @Input() highlightedEventId: number | null = null;
   @Input() selectedEventId: number | null = null;
+  @Input() centerOnSelection = true;
   @Output() markerSelect = new EventEmitter<number>();
   @Output() boundsChange = new EventEmitter<MapBounds>();
 
@@ -131,7 +132,12 @@ export class MapComponent implements AfterViewInit, OnChanges, OnDestroy {
     if (changes['highlightedEventId']) {
       this.applyHighlight();
     }
-    if (changes['selectedEventId'] && this.selectedEventId != null && this.map) {
+    if (
+      changes['selectedEventId'] &&
+      this.selectedEventId != null &&
+      this.map &&
+      this.centerOnSelection
+    ) {
       this.centerOnEvent(this.selectedEventId);
     }
   }

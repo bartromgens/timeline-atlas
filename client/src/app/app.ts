@@ -15,6 +15,7 @@ import { MapComponent, type MapBounds } from './map/map.component';
 import { AuthService } from './auth/auth.service';
 import type { CategoryApi, EventApi } from './event/event';
 import { EventsService } from './event/events.service';
+import { DEFAULT_FILTER_BY_VISIBLE_MAP_AREA } from './timeline/event-to-timeline-item';
 import { TimelineComponent } from './timeline/timeline.component';
 
 @Component({
@@ -44,6 +45,7 @@ export class App implements OnInit {
   mapBounds: MapBounds | null = null;
   hoveredEventId: number | null = null;
   selectedEventId: number | null = null;
+  filterByVisibleMapArea = DEFAULT_FILTER_BY_VISIBLE_MAP_AREA;
   isAnalyticsPage = false;
   isLoggedIn$: Observable<boolean>;
 
