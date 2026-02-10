@@ -77,7 +77,9 @@ def normalize_date(
         return {"value": year, "resolution": "year"} if year else None
     if precision == "month":
         m = re.match(r"^([+-]?\d{4}-\d{2})", raw_value)
-        month_val = m.group(1) if m else (raw_value[:7] if len(raw_value) >= 7 else raw_value)
+        month_val = (
+            m.group(1) if m else (raw_value[:7] if len(raw_value) >= 7 else raw_value)
+        )
         return {"value": month_val, "resolution": "month"}
     return {"value": raw_value, "resolution": precision}
 

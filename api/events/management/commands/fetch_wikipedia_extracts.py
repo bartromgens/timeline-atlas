@@ -22,9 +22,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        qs = Event.objects.filter(wikipedia_url__isnull=False).exclude(
-            wikipedia_url=""
-        )
+        qs = Event.objects.filter(wikipedia_url__isnull=False).exclude(wikipedia_url="")
         if not options["all"]:
             qs = qs.filter(wikipedia_extract="")
         qs = qs.order_by("-importance_score")
@@ -45,7 +43,5 @@ class Command(BaseCommand):
             else:
                 failed += 1
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Fetched {updated} extracts; {failed} failed or empty."
-            )
+            self.style.SUCCESS(f"Fetched {updated} extracts; {failed} failed or empty.")
         )

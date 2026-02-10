@@ -49,13 +49,9 @@ def fetch_wikipedia_extract(wikipedia_url: str) -> str | None:
             data = json.loads(resp.read().decode())
         extract = data.get("extract")
         if isinstance(extract, str) and extract.strip():
-            logger.info(
-                "Successfully fetched Wikipedia extract for %s", wikipedia_url
-            )
+            logger.info("Successfully fetched Wikipedia extract for %s", wikipedia_url)
             return extract.strip()
         return None
     except (HTTPError, OSError, json.JSONDecodeError, KeyError) as e:
-        logger.warning(
-            "Failed to fetch Wikipedia extract for %s: %s", wikipedia_url, e
-        )
+        logger.warning("Failed to fetch Wikipedia extract for %s: %s", wikipedia_url, e)
         return None

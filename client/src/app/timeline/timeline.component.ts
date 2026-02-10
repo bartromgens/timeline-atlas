@@ -110,10 +110,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private eventsForTimeline(): EventApi[] {
-    if (
-      !this.displayOptions.filterByVisibleMapArea ||
-      this.mapBounds == null
-    ) {
+    if (!this.displayOptions.filterByVisibleMapArea || this.mapBounds == null) {
       return this.events;
     }
     const b = this.mapBounds;
@@ -184,12 +181,7 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
         startMs: range.start.getTime(),
         endMs: range.end.getTime(),
       };
-      const items = eventsToTimelineItems(
-        filtered,
-        spanMs,
-        visibleWindow,
-        this.displayOptions,
-      );
+      const items = eventsToTimelineItems(filtered, spanMs, visibleWindow, this.displayOptions);
       this.currentItemIds = new Set(items.map((i) => Number(i.id)));
       this.timeline.setItems(items);
     } else {
