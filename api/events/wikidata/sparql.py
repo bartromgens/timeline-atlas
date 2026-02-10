@@ -147,7 +147,8 @@ WHERE {{
     ?item wdt:P31 ?type .
     ?type wdt:P279* wd:{category_qid} .
   }} UNION {{
-    ?item wdt:P2348 wd:{category_qid} .
+    ?item wdt:P2348 ?period .
+    ?period wdt:P361* wd:{category_qid} .
   }}
   OPTIONAL {{ ?item p:P585/psv:P585 [wikibase:timeValue ?point_in_time; wikibase:timePrecision ?point_in_time_precision] . }}
   OPTIONAL {{ ?item p:P580/psv:P580 [wikibase:timeValue ?start_time; wikibase:timePrecision ?start_time_precision] . }}
