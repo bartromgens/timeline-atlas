@@ -4,7 +4,7 @@ from typing import Any
 from django.db import transaction
 
 from api.events.importance import get_scorer
-from api.events.models import Category, Event
+from api.events.models import Category, Event, EventType
 from api.events.wikidata.pageviews_backlinks import PageviewsBacklinksFetcher
 from api.events.wikidata.sparql import WikidataSparqlClient
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 def _event_dict_to_model_data(
     data: dict[str, Any],
     category: Category | None = None,
+    event_type: EventType | None = None,
 ) -> dict[str, Any]:
     sort_date = (data.get("_sort_date") or "")[:32]
     sitelink_count = data.get("sitelink_count") or 0
@@ -24,6 +25,7 @@ def _event_dict_to_model_data(
     )
     return {
         "category": category,
+        "event_type": event_type,
         "title": (data.get("label") or "")[:500],
         "description": (data.get("description") or "")[:50000],
         "point_in_time": data.get("point_in_time"),
@@ -103,6 +105,7 @@ class EventLoader:
     def _save_events(
         events_data: list[dict[str, Any]],
         category: Category | None = None,
+        event_type: EventType | None = None,
     ) -> tuple[int, int]:
         created = 0
         updated = 0
@@ -111,7 +114,9 @@ class EventLoader:
                 qid = data.get("wikidata_id")
                 if not qid:
                     continue
-                payload = _event_dict_to_model_data(data, category=category)
+                payload = _event_dict_to_model_data(
+                    data, category=category, event_type=event_type
+                )
                 _, was_created = Event.objects.update_or_create(
                     wikidata_id=qid,
                     defaults=payload,
@@ -170,6 +175,7 @@ class EventLoader:
     def load_by_type(
         self,
         type_qids: list[str] | None = None,
+        event_type: EventType | None = None,
         start_year: int | None = None,
         end_year: int | None = None,
         min_sitelinks: int = 20,
@@ -186,7 +192,9 @@ class EventLoader:
         errors: list[tuple[str, str, str]] = []
         if fetch_pageviews_backlinks:
             errors = self._fetch_pageviews_backlinks(events_data)
-        created, updated = self._save_events(events_data, category=None)
+        created, updated = self._save_events(
+            events_data, category=None, event_type=event_type
+        )
         logger.info(
             "Loaded events by type: %d created, %d updated, %d fetch errors",
             created,

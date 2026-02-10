@@ -3,29 +3,44 @@ import sys
 
 from django.core.management.base import BaseCommand
 
+from api.events.models import EventType
 from api.events.wikidata import EventLoader
 from api.events.wikidata.sparql import (
     DEFAULT_MIN_SITELINKS,
     HISTORICAL_EVENT_TYPES,
 )
 
-_TYPE_SUGGESTIONS = ", ".join(f"{t['qid']}={t['label']}" for t in HISTORICAL_EVENT_TYPES)
-_TYPE_HELP = (
-    "Exactly one event type (QID or label). Suggestions: " + _TYPE_SUGGESTIONS
+_TYPE_SUGGESTIONS = ", ".join(
+    f"{t['qid']}={t['label']}" for t in HISTORICAL_EVENT_TYPES
 )
+_TYPE_HELP = "Exactly one event type (QID or label). Suggestions: " + _TYPE_SUGGESTIONS
 
 
-def _resolve_type(value: str) -> str | None:
+def _resolve_type(value: str) -> tuple[str, str] | None:
     value = (value or "").strip()
     if not value:
         return None
     if value.startswith("Q") and value[1:].isdigit():
-        return value
+        label = next(
+            (t["label"] for t in HISTORICAL_EVENT_TYPES if t["qid"] == value),
+            value,
+        )
+        return (value, label)
     lower = value.lower()
     for t in HISTORICAL_EVENT_TYPES:
         if t["label"] == lower:
-            return t["qid"]
+            return (t["qid"], t["label"])
     return None
+
+
+def _get_or_create_event_type(qid: str, label: str) -> EventType:
+    return EventType.objects.get_or_create(
+        wikidata_id=qid,
+        defaults={
+            "name": label,
+            "wikidata_url": f"https://www.wikidata.org/wiki/{qid}",
+        },
+    )[0]
 
 
 class Command(BaseCommand):
@@ -83,8 +98,8 @@ class Command(BaseCommand):
         )
 
         raw = options["type_qid"]
-        qid = _resolve_type(raw)
-        if not qid:
+        resolved = _resolve_type(raw)
+        if not resolved:
             self.stderr.write(
                 self.style.ERROR(
                     f"Unknown event type: {raw!r}. Use a QID (e.g. Q198) or a "
@@ -92,10 +107,13 @@ class Command(BaseCommand):
                 )
             )
             sys.exit(1)
+        qid, label = resolved
+        event_type = _get_or_create_event_type(qid, label)
 
         loader = EventLoader()
         created, updated, errors = loader.load_by_type(
             type_qids=[qid],
+            event_type=event_type,
             start_year=options["start_year"],
             end_year=options["end_year"],
             min_sitelinks=options["min_sitelinks"],
