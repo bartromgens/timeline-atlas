@@ -40,10 +40,25 @@ export interface EventApi {
   importance_score: number | null;
 }
 
+/**
+ * Parse ISO date string including BCE (negative year). JS Date often fails on
+ * BCE strings; we parse components and use Date.UTC(year, monthIndex, day).
+ */
+function parseEventTimeValue(value: string): Date | null {
+  const d = new Date(value);
+  if (!isNaN(d.getTime())) return d;
+  const m = value.match(/^(-?\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = m[2] ? parseInt(m[2], 10) - 1 : 0;
+  const day = m[3] ? parseInt(m[3], 10) : 1;
+  const ms = Date.UTC(year, month, day, 0, 0, 0, 0);
+  return isFinite(ms) ? new Date(ms) : null;
+}
+
 export function parseEventTime(time: EventTimeValue | null): Date | null {
   if (!time?.value) return null;
-  const d = new Date(time.value);
-  return isNaN(d.getTime()) ? null : d;
+  return parseEventTimeValue(time.value);
 }
 
 function hasStartAndEnd(event: EventApi): boolean {

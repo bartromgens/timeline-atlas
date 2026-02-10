@@ -35,6 +35,11 @@ def extract_wikipedia_title(url: str) -> str | None:
     return path.split("#")[0] or None
 
 
+def _parse_year_from_raw(raw_value: str) -> str | None:
+    m = re.match(r"^([+-]?\d{4})", raw_value)
+    return m.group(1) if m else None
+
+
 def sortable_date(d: dict | None) -> str:
     if not d:
         return ""
@@ -61,17 +66,19 @@ def normalize_date(
         except (ValueError, TypeError):
             pass
     if precision is None:
-        if re.match(r"^\d{4}-01-01T00:00:00Z$", raw_value):
+        if re.match(r"^[+-]?\d{4}-01-01T00:00:00Z$", raw_value):
             precision = "year"
-        elif re.match(r"^\d{4}-\d{2}-01T00:00:00Z$", raw_value):
+        elif re.match(r"^[+-]?\d{4}-\d{2}-01T00:00:00Z$", raw_value):
             precision = "month"
         else:
             precision = "day"
     if precision == "year":
-        year = raw_value[:4] if len(raw_value) >= 4 else raw_value
-        return {"value": year, "resolution": "year"}
+        year = _parse_year_from_raw(raw_value) or raw_value[:4] if raw_value else ""
+        return {"value": year, "resolution": "year"} if year else None
     if precision == "month":
-        return {"value": raw_value[:7], "resolution": "month"}
+        m = re.match(r"^([+-]?\d{4}-\d{2})", raw_value)
+        month_val = m.group(1) if m else (raw_value[:7] if len(raw_value) >= 7 else raw_value)
+        return {"value": month_val, "resolution": "month"}
     return {"value": raw_value, "resolution": precision}
 
 
