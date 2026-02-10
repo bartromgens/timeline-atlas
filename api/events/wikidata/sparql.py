@@ -11,6 +11,22 @@ WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 MAX_RETRIES = 3
 DEFAULT_RETRY_SECONDS = 60
 
+HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
+    {"qid": "Q198", "label": "war"},
+    {"qid": "Q178561", "label": "battle"},
+    {"qid": "Q131569", "label": "treaty"},
+    {"qid": "Q8690", "label": "revolution"},
+    {"qid": "Q124757", "label": "siege"},
+    {"qid": "Q891854", "label": "military campaign"},
+    {"qid": "Q12184", "label": "pandemic"},
+    {"qid": "Q3839081", "label": "disaster"},
+    {"qid": "Q35127", "label": "genocide"},
+    {"qid": "Q3024240", "label": "historical event"},
+    {"qid": "Q2401485", "label": "expedition"},
+    {"qid": "Q1361567", "label": "coronation"},
+]
+DEFAULT_MIN_SITELINKS = 20
+
 WIKIDATA_TIME_PRECISION = {
     9: "year",
     10: "month",
@@ -202,6 +218,58 @@ ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?date_of_birth
 LIMIT {limit}
 """
 
+    def _build_type_discovery_query(
+        self,
+        type_qids: list[str],
+        start_year: int | None,
+        end_year: int | None,
+        min_sitelinks: int,
+        limit: int,
+    ) -> str:
+        values = " ".join(f"wd:{q}" for q in type_qids)
+        year_filter = ""
+        if start_year is not None or end_year is not None:
+            date_expr = "COALESCE(?start_time, ?point_in_time, ?end_time)"
+            parts: list[str] = []
+            if start_year is not None:
+                parts.append(f"(YEAR({date_expr}) >= {start_year})")
+            if end_year is not None:
+                parts.append(f"(YEAR({date_expr}) <= {end_year})")
+            year_filter = " FILTER(" + " && ".join(parts) + ")"
+
+        return f"""
+PREFIX schema: <http://schema.org/>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+
+SELECT DISTINCT ?item ?itemLabel ?itemDescription
+  ?point_in_time ?point_in_time_precision
+  ?start_time ?start_time_precision
+  ?end_time ?end_time_precision
+  ?location ?locationLabel ?article ?sitelinks
+WHERE {{
+  VALUES ?type {{ {values} }}
+  ?item wdt:P31/wdt:P279* ?type .
+  ?item wikibase:sitelinks ?sitelinks .
+  FILTER(?sitelinks >= {min_sitelinks})
+  ?article schema:about ?item .
+  ?article schema:inLanguage "en" .
+  ?article schema:isPartOf <https://en.wikipedia.org/> .
+  OPTIONAL {{ ?item p:P585/psv:P585 [wikibase:timeValue ?point_in_time; wikibase:timePrecision ?point_in_time_precision] . }}
+  OPTIONAL {{ ?item p:P580/psv:P580 [wikibase:timeValue ?start_time; wikibase:timePrecision ?start_time_precision] . }}
+  OPTIONAL {{ ?item p:P582/psv:P582 [wikibase:timeValue ?end_time; wikibase:timePrecision ?end_time_precision] . }}
+  OPTIONAL {{ ?item wdt:P276 ?location . }}
+  FILTER(BOUND(?point_in_time) || BOUND(?start_time) || BOUND(?end_time))
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+  {year_filter}
+}}
+ORDER BY DESC(?sitelinks)
+LIMIT {limit}
+"""
+
     def _execute(self, sparql: SPARQLWrapper) -> dict:
         last_exc = None
         for attempt in range(self.max_retries + 1):
@@ -241,6 +309,132 @@ LIMIT {limit}
                 else:
                     raise
         raise last_exc  # type: ignore[misc]
+
+    @staticmethod
+    def _get_val(row: dict, key: str) -> str | None:
+        b = row.get(key)
+        return b.get("value") if b else None
+
+    @staticmethod
+    def _pick_raw_and_precision(
+        rows: list[dict],
+        val_key: str,
+        precision_key: str,
+        *qual_keys: str,
+    ) -> tuple[str | None, str | None]:
+        for r in rows:
+            v = WikidataSparqlClient._get_val(r, val_key)
+            if v is None:
+                for qk in qual_keys:
+                    v = WikidataSparqlClient._get_val(r, qk)
+                    if v is not None:
+                        break
+            if v is not None:
+                p = WikidataSparqlClient._get_val(r, precision_key)
+                return (v, p)
+        return (None, None)
+
+    def _parse_bindings(self, rows: list[dict]) -> list[dict]:
+        by_qid: dict[str, list[dict]] = {}
+        for row in rows:
+            item_uri = row.get("item", {}).get("value", "")
+            qid = extract_wikidata_id(item_uri) or ""
+            by_qid.setdefault(qid, []).append(row)
+
+        events: list[dict] = []
+        for qid, qid_rows in by_qid.items():
+            pt_raw, pt_prec = self._pick_raw_and_precision(
+                qid_rows,
+                "point_in_time",
+                "point_in_time_precision",
+                "point_in_time_q",
+                "point_in_time_p793",
+            )
+            st_raw, st_prec = self._pick_raw_and_precision(
+                qid_rows,
+                "start_time",
+                "start_time_precision",
+                "start_time_q",
+                "date_of_birth",
+            )
+            et_raw, et_prec = self._pick_raw_and_precision(
+                qid_rows,
+                "end_time",
+                "end_time_precision",
+                "end_time_q",
+                "date_of_death",
+            )
+            point_in_time = normalize_date(pt_raw, pt_prec)
+            start_time = normalize_date(st_raw, st_prec)
+            end_time = normalize_date(et_raw, et_prec)
+            r0 = qid_rows[0]
+            article_val = self._get_val(r0, "article")
+            wikidata_url = f"https://www.wikidata.org/wiki/{qid}" if qid else None
+            location_qid = extract_wikidata_id(self._get_val(r0, "location") or "")
+            sitelinks_val = self._get_val(r0, "sitelinks")
+            sitelink_count = 0
+            if sitelinks_val:
+                try:
+                    sitelink_count = int(sitelinks_val)
+                except (ValueError, TypeError):
+                    pass
+            events.append(
+                {
+                    "wikidata_id": qid or None,
+                    "wikidata_url": wikidata_url,
+                    "label": self._get_val(r0, "itemLabel"),
+                    "description": self._get_val(r0, "itemDescription"),
+                    "point_in_time": point_in_time,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "location_name": self._get_val(r0, "locationLabel"),
+                    "location_qid": location_qid or None,
+                    "location_lat": None,
+                    "location_lon": None,
+                    "wikipedia_url": article_val,
+                    "wikipedia_title": extract_wikipedia_title(article_val or ""),
+                    "sitelink_count": sitelink_count,
+                }
+            )
+        return events
+
+    def _enrich_events(
+        self,
+        events: list[dict],
+        fetch_sitelinks: bool = True,
+    ) -> None:
+        location_qids = list(
+            {e["location_qid"] for e in events if e.get("location_qid")}
+        )
+        if location_qids:
+            logger.info("Fetching coordinates for %d location(s)", len(location_qids))
+            coords = self.fetch_location_coordinates(location_qids)
+            for e in events:
+                lqid = e.get("location_qid")
+                if lqid and lqid in coords:
+                    e["location_lat"], e["location_lon"] = coords[lqid]
+        if fetch_sitelinks:
+            qids = [e["wikidata_id"] for e in events if e.get("wikidata_id")]
+            if qids:
+                logger.info("Fetching sitelink counts for %d items", len(qids))
+                sitelink_counts = self.fetch_sitelink_counts(qids)
+                for e in events:
+                    e["sitelink_count"] = sitelink_counts.get(
+                        e.get("wikidata_id") or "", 0
+                    )
+        events.sort(
+            key=lambda e: (
+                sortable_date(e["start_time"])
+                or sortable_date(e["point_in_time"])
+                or sortable_date(e["end_time"])
+            )
+        )
+        for e in events:
+            e["_sort_date"] = (
+                sortable_date(e["start_time"])
+                or sortable_date(e["point_in_time"])
+                or sortable_date(e["end_time"])
+            )
 
     def fetch_item_label(self, qid: str) -> str | None:
         if not qid or not re.match(r"^Q\d+$", qid):
@@ -470,118 +664,43 @@ LIMIT {limit}
         sparql.setReturnFormat(JSON)
         raw = self._execute(sparql)
 
-        def get_val(row: dict, key: str) -> str | None:
-            b = row.get(key)
-            return b.get("value") if b else None
-
-        def pick_raw_and_precision(
-            rows: list[dict],
-            val_key: str,
-            precision_key: str,
-            *qual_keys: str,
-        ) -> tuple[str | None, str | None]:
-            raw = None
-            prec = None
-            for r in rows:
-                v = get_val(r, val_key)
-                if v is None and qual_keys:
-                    for qk in qual_keys:
-                        v = get_val(r, qk)
-                        if v is not None:
-                            break
-                if v is not None:
-                    raw = v
-                    p = get_val(r, precision_key)
-                    if p is not None:
-                        prec = p
-                    break
-            return (raw, prec)
-
         rows = raw.get("results", {}).get("bindings", [])
         logger.info("Retrieved %d bindings from Wikidata", len(rows))
-        by_qid: dict[str, list[dict]] = {}
-        for row in rows:
-            item_uri = row.get("item", {}).get("value", "")
-            qid = extract_wikidata_id(item_uri) or ""
-            by_qid.setdefault(qid, []).append(row)
-
-        events: list[dict] = []
-        for qid, qid_rows in by_qid.items():
-            pt_raw, pt_prec = pick_raw_and_precision(
-                qid_rows,
-                "point_in_time",
-                "point_in_time_precision",
-                "point_in_time_q",
-                "point_in_time_p793",
-            )
-            st_raw, st_prec = pick_raw_and_precision(
-                qid_rows,
-                "start_time",
-                "start_time_precision",
-                "start_time_q",
-                "date_of_birth",
-            )
-            et_raw, et_prec = pick_raw_and_precision(
-                qid_rows,
-                "end_time",
-                "end_time_precision",
-                "end_time_q",
-                "date_of_death",
-            )
-            point_in_time = normalize_date(pt_raw, pt_prec)
-            start_time = normalize_date(st_raw, st_prec)
-            end_time = normalize_date(et_raw, et_prec)
-            r0 = qid_rows[0]
-            article_val = get_val(r0, "article")
-            wikidata_url = f"https://www.wikidata.org/wiki/{qid}" if qid else None
-            location_qid = extract_wikidata_id(get_val(r0, "location") or "")
-            events.append(
-                {
-                    "wikidata_id": qid or None,
-                    "wikidata_url": wikidata_url,
-                    "label": get_val(r0, "itemLabel"),
-                    "description": get_val(r0, "itemDescription"),
-                    "point_in_time": point_in_time,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "location_name": get_val(r0, "locationLabel"),
-                    "location_qid": location_qid or None,
-                    "location_lat": None,
-                    "location_lon": None,
-                    "wikipedia_url": article_val,
-                    "wikipedia_title": extract_wikipedia_title(article_val or ""),
-                }
-            )
-
-        location_qids = list(
-            {e["location_qid"] for e in events if e.get("location_qid")}
-        )
-        logger.info("Fetching coordinates for %d location(s)", len(location_qids))
-        coords = self.fetch_location_coordinates(location_qids)
-        for e in events:
-            lqid = e.get("location_qid")
-            if lqid and lqid in coords:
-                e["location_lat"], e["location_lon"] = coords[lqid]
-
-        qids = [e["wikidata_id"] for e in events if e.get("wikidata_id")]
-        logger.info("Fetching sitelink counts for %d items", len(qids))
-        sitelink_counts = self.fetch_sitelink_counts(qids)
-        for e in events:
-            e["sitelink_count"] = sitelink_counts.get(e.get("wikidata_id") or "", 0)
-
-        events.sort(
-            key=lambda e: (
-                sortable_date(e["start_time"])
-                or sortable_date(e["point_in_time"])
-                or sortable_date(e["end_time"])
-            )
-        )
-        # Expose sortable_date for use by loader
-        for e in events:
-            e["_sort_date"] = (
-                sortable_date(e["start_time"])
-                or sortable_date(e["point_in_time"])
-                or sortable_date(e["end_time"])
-            )
+        events = self._parse_bindings(rows)
+        self._enrich_events(events, fetch_sitelinks=True)
         logger.info("Built %d events from Wikidata", len(events))
+        return events
+
+    def run_type_discovery_query(
+        self,
+        type_qids: list[str] | None = None,
+        start_year: int | None = None,
+        end_year: int | None = None,
+        min_sitelinks: int = DEFAULT_MIN_SITELINKS,
+        limit: int = 500,
+    ) -> list[dict]:
+        if type_qids is None:
+            type_qids = [t["qid"] for t in HISTORICAL_EVENT_TYPES]
+        logger.info(
+            "Type discovery query (types=%d, start_year=%s, end_year=%s, "
+            "min_sitelinks=%d, limit=%d)",
+            len(type_qids),
+            start_year,
+            end_year,
+            min_sitelinks,
+            limit,
+        )
+        sparql = SPARQLWrapper(self.endpoint)
+        sparql.setQuery(
+            self._build_type_discovery_query(
+                type_qids, start_year, end_year, min_sitelinks, limit
+            )
+        )
+        sparql.setReturnFormat(JSON)
+        raw = self._execute(sparql)
+        rows = raw.get("results", {}).get("bindings", [])
+        logger.info("Retrieved %d bindings from type discovery", len(rows))
+        events = self._parse_bindings(rows)
+        self._enrich_events(events, fetch_sitelinks=False)
+        logger.info("Built %d events from type discovery", len(events))
         return events

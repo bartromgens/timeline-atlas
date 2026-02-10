@@ -39,7 +39,7 @@ import { TimelineComponent } from './timeline/timeline.component';
 export class App implements OnInit {
   readonly projectName = 'Timeline Atlas';
   categories$: Observable<CategoryApi[]>;
-  /** Bound to the select; '' = All, otherwise category id as string */
+  /** Bound to the select; '' = All, 'uncategorized' = no category, else category id */
   selectedCategoryValue = '';
   events: EventApi[] = [];
   mapBounds: MapBounds | null = null;
@@ -77,13 +77,13 @@ export class App implements OnInit {
     if (categoryParam != null && categoryParam !== '') {
       this.selectedCategoryValue = categoryParam;
     }
-    this.loadEvents(this.selectedCategoryIdFromValue());
+    this.loadEvents(this.selectedCategoryFilter());
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const categoryParam = params.get('category');
       if (categoryParam != null && categoryParam !== '') {
         if (categoryParam !== this.selectedCategoryValue) {
           this.selectedCategoryValue = categoryParam;
-          this.loadEvents(this.selectedCategoryIdFromValue());
+          this.loadEvents(this.selectedCategoryFilter());
           this.cdr.detectChanges();
         }
       } else if (this.selectedCategoryValue !== '') {
@@ -119,9 +119,10 @@ export class App implements OnInit {
   }
 
   onCategoryChange(): void {
-    const id = this.selectedCategoryIdFromValue();
-    this.loadEvents(id);
-    const categoryParam = this.selectedCategoryValue === '' ? null : this.selectedCategoryValue;
+    const filter = this.selectedCategoryFilter();
+    this.loadEvents(filter);
+    const categoryParam =
+      this.selectedCategoryValue === '' ? null : this.selectedCategoryValue;
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { category: categoryParam },
@@ -130,18 +131,23 @@ export class App implements OnInit {
     });
   }
 
-  /** Parse current select value to category id for API (null = All). */
-  private selectedCategoryIdFromValue(): number | null {
+  /** Parse current select value for API: null = All, 'uncategorized', or category id. */
+  private selectedCategoryFilter(): number | null | 'uncategorized' {
     const v = this.selectedCategoryValue;
-    return v === '' ? null : Number(v);
+    if (v === '' || v == null) return null;
+    if (v === 'uncategorized') return 'uncategorized';
+    const n = Number(v);
+    return Number.isNaN(n) ? null : n;
   }
 
   private loadRequestId = 0;
 
-  private loadEvents(categoryId: number | null): void {
+  private loadEvents(
+    filter: number | null | 'uncategorized',
+  ): void {
     const requestId = ++this.loadRequestId;
     this.eventsService
-      .getEvents(categoryId)
+      .getEvents(filter)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (events) => {

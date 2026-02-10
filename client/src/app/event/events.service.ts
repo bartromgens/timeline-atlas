@@ -23,9 +23,13 @@ export class EventsService {
       .pipe(map(parseCategoriesResponse));
   }
 
-  getEvents(categoryId: number | null = null): Observable<EventApi[]> {
+  getEvents(
+    categoryId: number | null | 'uncategorized' = null,
+  ): Observable<EventApi[]> {
     let params = new HttpParams();
-    if (categoryId != null) {
+    if (categoryId === 'uncategorized') {
+      params = params.set('category', 'uncategorized');
+    } else if (categoryId != null) {
       params = params.set('category', String(categoryId));
     }
     return this.http.get<EventsListResponse>(this.apiUrl, { params }).pipe(

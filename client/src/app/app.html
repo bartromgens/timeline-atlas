@@ -5,6 +5,7 @@
       <mat-label>Category</mat-label>
       <mat-select [(ngModel)]="selectedCategoryValue" (ngModelChange)="onCategoryChange()">
         <mat-option value="">All</mat-option>
+        <mat-option value="uncategorized">Uncategorized</mat-option>
         @for (cat of (categories$ | async) ?? []; track cat.id) {
           <mat-option [value]="cat.id.toString()">{{ cat.name || cat.wikidata_id }}</mat-option>
         }

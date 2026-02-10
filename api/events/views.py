@@ -25,8 +25,11 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
         qs = Event.objects.all()
         raw = self.request.query_params.get("category")
         if raw not in (None, ""):
-            try:
-                qs = qs.filter(category_id=int(raw))
-            except (TypeError, ValueError):
-                pass
+            if raw == "uncategorized":
+                qs = qs.filter(category_id__isnull=True)
+            else:
+                try:
+                    qs = qs.filter(category_id=int(raw))
+                except (TypeError, ValueError):
+                    pass
         return qs
