@@ -40,20 +40,27 @@ export interface EventApi {
   importance_score: number | null;
 }
 
+/** Unicode minus (U+2212) used by Wikidata for BCE. */
+const UNICODE_MINUS = '\u2212';
+
 /**
  * Parse ISO date string including BCE (negative year). JS Date often fails on
- * BCE strings; we parse components and use Date.UTC(year, monthIndex, day).
+ * BCE strings; we parse components. Date.UTC(year, ...) treats 0–99 as 1900+year,
+ * so we build the date via setUTCFullYear for correct BCE and 1–99 AD.
  */
 function parseEventTimeValue(value: string): Date | null {
-  const d = new Date(value);
+  const normalized = value.replace(UNICODE_MINUS, '-');
+  const d = new Date(normalized);
   if (!isNaN(d.getTime())) return d;
-  const m = value.match(/^(-?\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
+  const m = normalized.match(/^(-?\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
   if (!m) return null;
   const year = parseInt(m[1], 10);
   const month = m[2] ? parseInt(m[2], 10) - 1 : 0;
   const day = m[3] ? parseInt(m[3], 10) : 1;
-  const ms = Date.UTC(year, month, day, 0, 0, 0, 0);
-  return isFinite(ms) ? new Date(ms) : null;
+  const base = new Date(0);
+  base.setUTCFullYear(year, month, day);
+  base.setUTCHours(0, 0, 0, 0);
+  return isFinite(base.getTime()) ? base : null;
 }
 
 export function parseEventTime(time: EventTimeValue | null): Date | null {

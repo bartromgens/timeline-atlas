@@ -35,9 +35,17 @@ def extract_wikipedia_title(url: str) -> str | None:
     return path.split("#")[0] or None
 
 
+# Unicode minus (U+2212) is used by Wikidata for BCE; normalize to ASCII minus.
+
+
 def _parse_year_from_raw(raw_value: str) -> str | None:
-    m = re.match(r"^([+-]?\d{4})", raw_value)
-    return m.group(1) if m else None
+    m = re.match(r"^([+\-\u2212]?\d{4})", raw_value)
+    if not m:
+        return None
+    year = m.group(1)
+    if year.startswith("\u2212"):
+        year = "-" + year[1:]
+    return year
 
 
 def sortable_date(d: dict | None) -> str:
@@ -66,20 +74,26 @@ def normalize_date(
         except (ValueError, TypeError):
             pass
     if precision is None:
-        if re.match(r"^[+-]?\d{4}-01-01T00:00:00Z$", raw_value):
+        if re.match(r"^[+\-\u2212]?\d{4}-01-01T00:00:00Z$", raw_value):
             precision = "year"
-        elif re.match(r"^[+-]?\d{4}-\d{2}-01T00:00:00Z$", raw_value):
+        elif re.match(r"^[+\-\u2212]?\d{4}-\d{2}-01T00:00:00Z$", raw_value):
             precision = "month"
         else:
             precision = "day"
     if precision == "year":
-        year = _parse_year_from_raw(raw_value) or raw_value[:4] if raw_value else ""
+        year = _parse_year_from_raw(raw_value)
+        if not year and raw_value and raw_value[0].isdigit():
+            year = raw_value[:4]
+        if not year:
+            year = ""
         return {"value": year, "resolution": "year"} if year else None
     if precision == "month":
-        m = re.match(r"^([+-]?\d{4}-\d{2})", raw_value)
+        m = re.match(r"^([+\-\u2212]?\d{4}-\d{2})", raw_value)
         month_val = (
             m.group(1) if m else (raw_value[:7] if len(raw_value) >= 7 else raw_value)
         )
+        if month_val.startswith("\u2212"):
+            month_val = "-" + month_val[1:]
         return {"value": month_val, "resolution": "month"}
     return {"value": raw_value, "resolution": precision}
 

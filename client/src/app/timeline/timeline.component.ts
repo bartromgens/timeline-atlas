@@ -11,7 +11,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { Timeline } from 'vis-timeline';
-import type { DataGroup } from 'vis-timeline';
+import type { DataGroup, TimelineItem } from 'vis-timeline';
 import { colorForCategory } from '../models/category-colors';
 import type { CategoryApi, EventApi } from '../event/event';
 import { eventEndDate, eventStartDate } from '../event/event';
@@ -32,6 +32,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { TimelineSettingsComponent } from './timeline-settings.component';
 
 const UNCATEGORIZED_GROUP_ID = 'uncategorized';
+
+function endOfToday(): Date {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
 
 @Component({
   selector: 'app-timeline',
@@ -173,9 +179,8 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       return;
     }
     this.timeline.setGroups(this.buildGroups());
-    const range = this.eventDateRange();
+    const range = this.eventDateRange(filtered);
     if (range) {
-      this.timeline.setWindow(range.start, range.end, { animation: false });
       const spanMs = Math.max(range.end.getTime() - range.start.getTime(), MIN_SPAN_MS);
       const visibleWindow: VisibleWindow = {
         startMs: range.start.getTime(),
@@ -183,6 +188,11 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
       };
       const items = eventsToTimelineItems(filtered, spanMs, visibleWindow, this.displayOptions);
       this.currentItemIds = new Set(items.map((i) => Number(i.id)));
+      const windowRange = this.dateRangeFromItems(items) ?? range;
+      const maxDate = endOfToday();
+      const windowEnd =
+        windowRange.end.getTime() > maxDate.getTime() ? maxDate : windowRange.end;
+      this.timeline.setWindow(windowRange.start, windowEnd, { animation: false });
       this.timeline.setItems(items);
     } else {
       this.currentItemIds.clear();
@@ -191,10 +201,34 @@ export class TimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.scheduleApplySelection();
   }
 
-  private eventDateRange(): { start: Date; end: Date } | null {
+  private dateRangeFromItems(
+    items: TimelineItem[],
+  ): { start: Date; end: Date } | null {
+    if (items.length === 0) return null;
     let minMs = Infinity;
     let maxMs = -Infinity;
-    for (const e of this.events) {
+    for (const item of items) {
+      const startMs = new Date(item.start as string).getTime();
+      if (!Number.isFinite(startMs)) continue;
+      const endMs = item.end != null ? new Date(item.end as string).getTime() : startMs;
+      minMs = Math.min(minMs, startMs);
+      maxMs = Math.max(maxMs, Number.isFinite(endMs) ? endMs : startMs);
+    }
+    if (minMs === Infinity) return null;
+    if (minMs === maxMs) {
+      const half = MIN_SPAN_MS / 2;
+      return {
+        start: new Date(minMs - half),
+        end: new Date(minMs + half),
+      };
+    }
+    return { start: new Date(minMs), end: new Date(maxMs) };
+  }
+
+  private eventDateRange(events: EventApi[]): { start: Date; end: Date } | null {
+    let minMs = Infinity;
+    let maxMs = -Infinity;
+    for (const e of events) {
       const start = eventStartDate(e);
       if (!start) continue;
       const end = eventEndDate(e) ?? start;
