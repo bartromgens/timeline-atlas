@@ -124,13 +124,15 @@ class WikidataSparqlClient:
         year_filter = ""
         if start_year is not None or end_year is not None:
             sort_date_expr = (
-                "COALESCE(?start_time, ?start_time_q, ?point_in_time, "
-                "?point_in_time_q, ?point_in_time_p793, ?end_time, ?end_time_q)"
+                "COALESCE(?start_time, ?start_time_q, ?date_of_birth, "
+                "?point_in_time, ?point_in_time_q, ?point_in_time_p793, "
+                "?end_time, ?end_time_q, ?date_of_death)"
             )
             parts = [
                 "(BOUND(?point_in_time) || BOUND(?point_in_time_q) || "
                 "BOUND(?point_in_time_p793) || BOUND(?start_time) || "
-                "BOUND(?start_time_q) || BOUND(?end_time) || BOUND(?end_time_q))"
+                "BOUND(?start_time_q) || BOUND(?date_of_birth) || "
+                "BOUND(?end_time) || BOUND(?end_time_q) || BOUND(?date_of_death))"
             ]
             if start_year is not None:
                 parts.append(f"(YEAR({sort_date_expr}) >= {start_year})")
@@ -141,8 +143,9 @@ class WikidataSparqlClient:
         day_precision_filter = (
             " FILTER(?point_in_time_precision = 11 || "
             "?start_time_precision = 11 || ?end_time_precision = 11 || "
+            "?date_of_birth_precision = 11 || ?date_of_death_precision = 11 || "
             "BOUND(?point_in_time_q) || BOUND(?start_time_q) || BOUND(?end_time_q) || "
-            "BOUND(?point_in_time_p793))"
+            "BOUND(?point_in_time_p793) || BOUND(?date_of_birth) || BOUND(?date_of_death))"
         )
 
         return f"""
@@ -155,7 +158,7 @@ PREFIX pqv: <http://www.wikidata.org/prop/qualifier/value/>
 PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
 
-SELECT DISTINCT ?item ?itemLabel ?itemDescription ?point_in_time ?start_time ?end_time ?point_in_time_precision ?start_time_precision ?end_time_precision ?point_in_time_q ?start_time_q ?end_time_q ?point_in_time_p793 ?location ?locationLabel ?article
+SELECT DISTINCT ?item ?itemLabel ?itemDescription ?point_in_time ?start_time ?end_time ?point_in_time_precision ?start_time_precision ?end_time_precision ?point_in_time_q ?start_time_q ?end_time_q ?point_in_time_p793 ?date_of_birth ?date_of_birth_precision ?date_of_death ?date_of_death_precision ?location ?locationLabel ?article
 WHERE {{
   {{
     ?item wdt:P361* wd:{category_qid} .
@@ -173,6 +176,8 @@ WHERE {{
   OPTIONAL {{ ?item p:P361/pq:P580 ?start_time_q . }}
   OPTIONAL {{ ?item p:P361/pq:P582 ?end_time_q . }}
   OPTIONAL {{ ?item p:P793/pqv:P585 [wikibase:timeValue ?point_in_time_p793] . }}
+  OPTIONAL {{ ?item p:P569/psv:P569 [wikibase:timeValue ?date_of_birth; wikibase:timePrecision ?date_of_birth_precision] . }}
+  OPTIONAL {{ ?item p:P570/psv:P570 [wikibase:timeValue ?date_of_death; wikibase:timePrecision ?date_of_death_precision] . }}
   OPTIONAL {{ ?item wdt:P276 ?location . }}
   OPTIONAL {{
     ?article schema:about ?item .
@@ -183,7 +188,7 @@ WHERE {{
   {day_precision_filter}
   {year_filter}
 }}
-ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?point_in_time) || BOUND(?point_in_time_q) || BOUND(?point_in_time_p793) || BOUND(?end_time) || BOUND(?end_time_q)) ASC(COALESCE(?start_time, ?start_time_q, ?point_in_time, ?point_in_time_q, ?point_in_time_p793, ?end_time, ?end_time_q))
+ORDER BY DESC(BOUND(?start_time) || BOUND(?start_time_q) || BOUND(?date_of_birth) || BOUND(?point_in_time) || BOUND(?point_in_time_q) || BOUND(?point_in_time_p793) || BOUND(?end_time) || BOUND(?end_time_q) || BOUND(?date_of_death)) ASC(COALESCE(?start_time, ?start_time_q, ?date_of_birth, ?point_in_time, ?point_in_time_q, ?point_in_time_p793, ?end_time, ?end_time_q, ?date_of_death))
 LIMIT {limit}
 """
 
@@ -504,12 +509,14 @@ LIMIT {limit}
                 "start_time",
                 "start_time_precision",
                 "start_time_q",
+                "date_of_birth",
             )
             et_raw, et_prec = pick_raw_and_precision(
                 qid_rows,
                 "end_time",
                 "end_time_precision",
                 "end_time_q",
+                "date_of_death",
             )
             point_in_time = normalize_date(pt_raw, pt_prec)
             start_time = normalize_date(st_raw, st_prec)
