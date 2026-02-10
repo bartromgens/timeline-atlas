@@ -41,7 +41,7 @@
           [selectedEventId]="selectedEventId"
           [centerOnSelection]="!filterByVisibleMapArea"
           (markerSelect)="onMapMarkerSelect($event)"
-          (boundsChange)="mapBounds = $event"
+          (boundsChange)="onBoundsChange($event)"
         />
       </div>
     </div>

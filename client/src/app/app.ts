@@ -94,6 +94,13 @@ export class App implements OnInit {
     });
   }
 
+  onBoundsChange(bounds: MapBounds): void {
+    setTimeout(() => {
+      this.mapBounds = bounds;
+      this.cdr.detectChanges();
+    }, 0);
+  }
+
   onTimelineItemHover(eventId: number | null): void {
     this.hoveredEventId = eventId;
   }
