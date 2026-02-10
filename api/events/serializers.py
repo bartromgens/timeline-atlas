@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from api.events.models import Category, Event
+from api.events.models import Category, Event, EventType
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -10,9 +10,19 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class EventTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventType
+        fields = ["id", "name", "wikidata_id"]
+        read_only_fields = fields
+
+
 class EventSerializer(serializers.ModelSerializer):
     category_id = serializers.PrimaryKeyRelatedField(
         read_only=True, source="category", allow_null=True
+    )
+    event_type_id = serializers.PrimaryKeyRelatedField(
+        read_only=True, source="event_type", allow_null=True
     )
 
     class Meta:
@@ -20,6 +30,7 @@ class EventSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "category_id",
+            "event_type_id",
             "title",
             "description",
             "point_in_time",

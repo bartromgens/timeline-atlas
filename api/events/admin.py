@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils.html import escape, format_html
 
-from api.events.models import Category, Event
+from api.events.models import Category, Event, EventType
 
 
 class HasCoordsFilter(admin.SimpleListFilter):
@@ -51,6 +51,18 @@ class CategoryAdmin(admin.ModelAdmin):
         return obj.events.count()
 
 
+@admin.register(EventType)
+class EventTypeAdmin(admin.ModelAdmin):
+    list_display = ["name", "wikidata_id", "event_count"]
+    list_display_links = ["name", "wikidata_id"]
+    search_fields = ["name", "wikidata_id"]
+    readonly_fields = ["wikidata_id", "wikidata_url"]
+
+    @admin.display(description="Events")
+    def event_count(self, obj: EventType) -> int:
+        return obj.events.count()
+
+
 def _json_property_display(items: list) -> str:
     if not items:
         return "—"
@@ -74,6 +86,7 @@ class EventAdmin(admin.ModelAdmin):
         "wikidata_link",
         "title_link",
         "category_link",
+        "event_type",
         "sort_date",
         "date_point_in_time",
         "date_start_end",
@@ -86,11 +99,12 @@ class EventAdmin(admin.ModelAdmin):
         "backlink_count",
     ]
     list_display_links = ["wikidata_id"]
-    list_filter = ["category", HasCoordsFilter]
+    list_filter = ["category", "event_type", HasCoordsFilter]
     list_per_page = 50
     search_fields = [
         "title",
         "category__name",
+        "event_type__name",
         "description",
         "wikidata_id",
         "wikipedia_title",
@@ -114,6 +128,7 @@ class EventAdmin(admin.ModelAdmin):
                     "title",
                     "description",
                     "category",
+                    "event_type",
                     "wikidata_id",
                     "wikidata_url",
                 )

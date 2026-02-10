@@ -1,8 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.pagination import PageNumberPagination
 
-from api.events.models import Category, Event
-from api.events.serializers import CategorySerializer, EventSerializer
+from api.events.models import Category, Event, EventType
+from api.events.serializers import (
+    CategorySerializer,
+    EventSerializer,
+    EventTypeSerializer,
+)
 
 
 class EventPagination(PageNumberPagination):
@@ -12,6 +16,13 @@ class EventPagination(PageNumberPagination):
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Category.objects.all().order_by("name")
     serializer_class = CategorySerializer
+    permission_classes = []
+    pagination_class = None
+
+
+class EventTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = EventType.objects.all().order_by("name")
+    serializer_class = EventTypeSerializer
     permission_classes = []
     pagination_class = None
 

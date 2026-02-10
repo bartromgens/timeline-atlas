@@ -9,23 +9,39 @@ from api.events.wikidata.sparql import (
     HISTORICAL_EVENT_TYPES,
 )
 
+_TYPE_SUGGESTIONS = ", ".join(f"{t['qid']}={t['label']}" for t in HISTORICAL_EVENT_TYPES)
+_TYPE_HELP = (
+    "Exactly one event type (QID or label). Suggestions: " + _TYPE_SUGGESTIONS
+)
+
+
+def _resolve_type(value: str) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    if value.startswith("Q") and value[1:].isdigit():
+        return value
+    lower = value.lower()
+    for t in HISTORICAL_EVENT_TYPES:
+        if t["label"] == lower:
+            return t["qid"]
+    return None
+
 
 class Command(BaseCommand):
     help = (
         "Discover important historical events from Wikidata by event type "
-        "(war, battle, treaty, etc.) and load them into the database."
+        "(war, battle, treaty, etc.) and load them into the database. "
+        "One event type per run to avoid query timeouts."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--types",
-            nargs="*",
-            default=None,
-            help=(
-                "Wikidata QIDs of event types to query "
-                "(e.g. Q198 Q178561). Defaults to a curated list of "
-                "historical event types."
-            ),
+            "--type",
+            dest="type_qid",
+            metavar="QID_OR_LABEL",
+            required=True,
+            help=_TYPE_HELP,
         )
         parser.add_argument(
             "--start-year",
@@ -59,11 +75,6 @@ class Command(BaseCommand):
             action="store_true",
             help="Skip fetching pageviews and backlinks (faster, values stay 0).",
         )
-        parser.add_argument(
-            "--list-types",
-            action="store_true",
-            help="List the default event types and exit.",
-        )
 
     def handle(self, *args, **options):
         logging.basicConfig(
@@ -71,15 +82,20 @@ class Command(BaseCommand):
             format="%(levelname)s: %(message)s",
         )
 
-        if options["list_types"]:
-            self.stdout.write("Default historical event types:")
-            for t in HISTORICAL_EVENT_TYPES:
-                self.stdout.write(f"  {t['qid']:>12s}  {t['label']}")
-            return
+        raw = options["type_qid"]
+        qid = _resolve_type(raw)
+        if not qid:
+            self.stderr.write(
+                self.style.ERROR(
+                    f"Unknown event type: {raw!r}. Use a QID (e.g. Q198) or a "
+                    "label from the suggestions in --help."
+                )
+            )
+            sys.exit(1)
 
         loader = EventLoader()
         created, updated, errors = loader.load_by_type(
-            type_qids=options["types"],
+            type_qids=[qid],
             start_year=options["start_year"],
             end_year=options["end_year"],
             min_sitelinks=options["min_sitelinks"],

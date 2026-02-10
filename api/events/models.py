@@ -17,6 +17,18 @@ class Category(models.Model):
         verbose_name_plural = "categories"
 
 
+class EventType(models.Model):
+    name = models.CharField(max_length=500, blank=True)
+    wikidata_id = models.CharField(max_length=20, unique=True)
+    wikidata_url = models.URLField(max_length=500, blank=True)
+
+    def __str__(self) -> str:
+        return self.name or self.wikidata_id
+
+    class Meta:
+        verbose_name_plural = "event types"
+
+
 class EventQuerySet(models.QuerySet["Event"]):
     def in_date_range(
         self,
@@ -42,6 +54,13 @@ class Event(models.Model):
         null=True,
         blank=True,
         on_delete=models.CASCADE,
+        related_name="events",
+    )
+    event_type = models.ForeignKey(
+        EventType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         related_name="events",
     )
     title = models.CharField(max_length=500, blank=True)
