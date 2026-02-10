@@ -47,20 +47,22 @@ const UNICODE_MINUS = '\u2212';
  * Parse ISO date string including BCE (negative year). JS Date often fails on
  * BCE strings; we parse components. Date.UTC(year, ...) treats 0–99 as 1900+year,
  * so we build the date via setUTCFullYear for correct BCE and 1–99 AD.
+ * Year regex uses \d{1,4} so short BCE years (e.g. "-60") are parsed as -60, not 1960.
  */
 function parseEventTimeValue(value: string): Date | null {
   const normalized = value.replace(UNICODE_MINUS, '-');
+  const m = normalized.match(/^(-?\d{1,4})(?:-(\d{2})(?:-(\d{2}))?)?/);
+  if (m) {
+    const year = parseInt(m[1], 10);
+    const month = m[2] ? parseInt(m[2], 10) - 1 : 0;
+    const day = m[3] ? parseInt(m[3], 10) : 1;
+    const base = new Date(0);
+    base.setUTCFullYear(year, month, day);
+    base.setUTCHours(0, 0, 0, 0);
+    if (isFinite(base.getTime())) return base;
+  }
   const d = new Date(normalized);
-  if (!isNaN(d.getTime())) return d;
-  const m = normalized.match(/^(-?\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
-  if (!m) return null;
-  const year = parseInt(m[1], 10);
-  const month = m[2] ? parseInt(m[2], 10) - 1 : 0;
-  const day = m[3] ? parseInt(m[3], 10) : 1;
-  const base = new Date(0);
-  base.setUTCFullYear(year, month, day);
-  base.setUTCHours(0, 0, 0, 0);
-  return isFinite(base.getTime()) ? base : null;
+  return !isNaN(d.getTime()) ? d : null;
 }
 
 export function parseEventTime(time: EventTimeValue | null): Date | null {

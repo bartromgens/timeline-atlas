@@ -39,13 +39,21 @@ def extract_wikipedia_title(url: str) -> str | None:
 
 
 def _parse_year_from_raw(raw_value: str) -> str | None:
-    m = re.match(r"^([+\-\u2212]?\d{4})", raw_value)
+    m = re.match(r"^([+\-\u2212]?\d{1,4})", raw_value)
     if not m:
         return None
     year = m.group(1)
     if year.startswith("\u2212"):
         year = "-" + year[1:]
     return year
+
+
+def _year_to_canonical(year_str: str) -> str:
+    """Zero-pad negative years to 4 digits for correct ISO-style parsing."""
+    if not year_str or year_str[0] != "-":
+        return year_str
+    digits = year_str[1:].lstrip("0") or "0"
+    return "-" + digits.zfill(4)
 
 
 def sortable_date(d: dict | None) -> str:
@@ -74,9 +82,9 @@ def normalize_date(
         except (ValueError, TypeError):
             pass
     if precision is None:
-        if re.match(r"^[+\-\u2212]?\d{4}-01-01T00:00:00Z$", raw_value):
+        if re.match(r"^[+\-\u2212]?\d{1,4}-01-01T00:00:00Z$", raw_value):
             precision = "year"
-        elif re.match(r"^[+\-\u2212]?\d{4}-\d{2}-01T00:00:00Z$", raw_value):
+        elif re.match(r"^[+\-\u2212]?\d{1,4}-\d{2}-01T00:00:00Z$", raw_value):
             precision = "month"
         else:
             precision = "day"
@@ -86,6 +94,8 @@ def normalize_date(
             year = raw_value[:4]
         if not year:
             year = ""
+        if year:
+            year = _year_to_canonical(year)
         return {"value": year, "resolution": "year"} if year else None
     if precision == "month":
         m = re.match(r"^([+\-\u2212]?\d{4}-\d{2})", raw_value)
