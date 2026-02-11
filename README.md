@@ -1,16 +1,16 @@
 # timeline-atlas
 
-An interactive visualization tool that combines geographic and temporal data from Wikipedia to explore historical events through a zoomable timeline and interactive map interface.
+An interactive visualization web app that combines geographic and temporal data from Wikipedia/Wikidata to explore historical events through a zoomable timeline and interactive map.
 
 ## 🎯 Project Goal
 
-Create an intuitive, Google Maps-style interface for exploring historical events where:
+Create an intuitive, interactive interface for exploring historical events where:
 - **Timeline zoom reveals detail**: Major events visible when zoomed out, minor events appear when zoomed in
 - **Geographic filtering**: Events displayed on an interactive map can be filtered by visible region
 - **Bidirectional interaction**: Map and timeline are synchronized - filtering one updates the other
 - **Rich context**: Each event links to Wikipedia articles with descriptions, images, and related information
 
-The system is designed to work with any historical period or topic from Wikipedia/Wikidata. Initial implementation will focus on World War II (1939-1945) as a proof of concept.
+The application is designed to work with any historical period or topic from Wikipedia/Wikidata. Initial implementation will focus on World War II (1939-1945) as a proof of concept.
 
 ## ✨ Core Features
 
@@ -47,21 +47,20 @@ The system is designed to work with any historical period or topic from Wikipedi
 - **Django REST Framework**: RESTful API
 
 ### Frontend
-- **Angular 18+**: Frontend framework
+- **Angular 20+**: Frontend framework
 - **Leaflet**: Interactive maps
 - **Angular Material**: UI components
 
 ### Data Sources
 - **Wikidata**: Structured event data via SPARQL queries
 - **Wikipedia API**: Article content, summaries, and images
-- **Wikimedia Commons**: Historical photographs and maps
+
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Python 3.12+
-- Node.js 18+
-- PostgreSQL with PostGIS extension
+- Node.js 20.20+
 
 ### Backend Setup
 ```bash
@@ -79,36 +78,20 @@ ng serve
 
 ### Import Initial Data
 ```bash
-# Import events from Wikidata for a specific topic/period
-python manage.py import_events --topic "World War II" --start-year 1939 --end-year 1945
+# Import events from Wikidata by category (Q362 = World War II) and optional year range
+python manage.py load_events_by_category Q362 --start-year 1939 --end-year 1945
 ```
-
-## 📡 API Endpoints
-
-### Events
-- `GET /api/events/` - List events with filters
-  - Query params: `start_date`, `end_date`, `min_lat`, `max_lat`, `min_lng`, `max_lng`, `zoom_level`
-- `GET /api/events/{id}/` - Event detail
-- `GET /api/events/date-range/` - Get min/max dates in dataset
-
-## 🔄 Data Import Process
-
-1. **SPARQL Query**: Fetch events from Wikidata based on topic/time period
-2. **Data Enrichment**: Get Wikipedia article content and images
-3. **Geocoding**: Ensure all events have valid coordinates
-4. **Importance Scoring**: Calculate importance levels based on page views and links
-5. **Database Storage**: Save to a database
 
 ## 🛣 Roadmap
 
 ### Phase 1: MVP (Current)
 - [x] Project setup and architecture
-- [ ] Basic timeline with zoom
-- [ ] Basic map with markers
-- [ ] Event data model and API
-- [ ] Wikidata import script
-- [ ] Synchronized filtering
-- [ ] Initial dataset: World War II (1939-1945)
+- [x] Basic timeline with zoom
+- [x] Basic map with markers
+- [x] Event data model and API
+- [x] Wikidata import script
+- [x] Synchronized filtering
+- [x] Initial dataset: World War II (1939-1945)
 
 ## 📄 License
 
