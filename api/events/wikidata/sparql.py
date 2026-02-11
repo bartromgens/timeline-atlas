@@ -21,7 +21,7 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q12184", "label": "pandemic"},
     {"qid": "Q3839081", "label": "disaster"},
     {"qid": "Q744913", "label": "aviation accident"},
-    {"qid": "Q35127", "label": "genocide"},
+    {"qid": "Q41397", "label": "genocide"},
     {"qid": "Q2401485", "label": "expedition"},
     {"qid": "Q1361567", "label": "coronation"},
     {"qid": "Q3882219", "label": "assassination"},
