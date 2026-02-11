@@ -2,26 +2,12 @@ import logging
 from typing import TYPE_CHECKING
 
 from django.core.management.base import BaseCommand
-from django.db import transaction
 
+from api.events.event_category import update_categories_from_wikidata
 from api.events.models import Category, Event
-from api.events.wikidata.sparql import WikidataSparqlClient
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
-
-
-def _resolve_category_from_part_of(
-    part_of_qids: list[str],
-    categories_by_qid: dict[str, Category],
-    exclude_qid: str | None = None,
-) -> Category | None:
-    for qid in part_of_qids:
-        if qid == exclude_qid:
-            continue
-        if qid in categories_by_qid:
-            return categories_by_qid[qid]
-    return None
 
 
 class Command(BaseCommand):
@@ -98,7 +84,7 @@ class Command(BaseCommand):
 
     def _determine_from_wikidata(
         self,
-        qs: "QuerySet[Event]",
+        qs,
         dry_run: bool,
         batch_size: int,
     ) -> None:
@@ -120,59 +106,30 @@ class Command(BaseCommand):
             level=logging.INFO,
             format="%(levelname)s: %(message)s",
         )
-        client = WikidataSparqlClient()
         event_qids = [e.wikidata_id for e in events if e.wikidata_id]
         self.stdout.write(
             f"Fetching P361 (part of) from Wikidata for {len(event_qids)} event(s)..."
         )
-        part_of_map = client.fetch_events_part_of(event_qids, batch_size=batch_size)
-
-        to_update: list[tuple[int, Category]] = []
-        no_match: list[str] = []
-        already_correct = 0
-        for event in events:
-            qid = event.wikidata_id
-            if not qid:
-                continue
-            part_of = part_of_map.get(qid, [])
-            category = _resolve_category_from_part_of(
-                part_of, categories_by_qid, exclude_qid=qid
-            )
-            if category is not None:
-                if event.category_id != category.pk:
-                    to_update.append((event.pk, category))
-                else:
-                    already_correct += 1
-            else:
-                no_match.append(qid)
+        updated, already_correct, no_match = update_categories_from_wikidata(
+            qs, batch_size=batch_size, dry_run=dry_run
+        )
+        matched = updated + already_correct
 
         if dry_run:
-            matched = len(to_update) + already_correct
             self.stdout.write(
                 f"{matched} event(s) would match a category; "
-                f"{already_correct} already correct, {len(to_update)} would be updated."
+                f"{already_correct} already correct, {updated} would be updated."
             )
-            if no_match:
-                self.stdout.write(
-                    f"No matching category in DB for {len(no_match)} event(s): "
-                    f"{', '.join(no_match[:10])}{'...' if len(no_match) > 10 else ''}"
+        else:
+            self.stdout.write(
+                f"{matched} event(s) matched a category in the DB; "
+                f"{already_correct} already had the correct category."
+            )
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Updated category for {updated} event(s) from Wikidata."
                 )
-            return
-
-        with transaction.atomic():
-            for pk, category in to_update:
-                Event.objects.filter(pk=pk).update(category=category)
-
-        matched = len(to_update) + already_correct
-        self.stdout.write(
-            f"{matched} event(s) matched a category in the DB; "
-            f"{already_correct} already had the correct category."
-        )
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Updated category for {len(to_update)} event(s) from Wikidata."
             )
-        )
         if no_match:
             self.stdout.write(
                 f"No matching category in DB for {len(no_match)} event(s): "

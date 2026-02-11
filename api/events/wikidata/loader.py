@@ -3,6 +3,7 @@ from typing import Any
 
 from django.db import transaction
 
+from api.events.event_category import resolve_category_from_part_of
 from api.events.importance import get_scorer
 from api.events.models import Category, Event, EventType
 from api.events.wikidata.pageviews_backlinks import PageviewsBacklinksFetcher
@@ -114,8 +115,13 @@ class EventLoader:
                 qid = data.get("wikidata_id")
                 if not qid:
                     continue
+                event_category = (
+                    data.get("category")
+                    if isinstance(data.get("category"), Category)
+                    else category
+                )
                 payload = _event_dict_to_model_data(
-                    data, category=category, event_type=event_type
+                    data, category=event_category, event_type=event_type
                 )
                 _, was_created = Event.objects.update_or_create(
                     wikidata_id=qid,
@@ -189,6 +195,16 @@ class EventLoader:
             min_sitelinks=min_sitelinks,
             limit=limit,
         )
+        categories_by_qid = {
+            c.wikidata_id: c for c in Category.objects.only("pk", "wikidata_id")
+        }
+        for data in events_data:
+            part_of = data.get("part_of") or []
+            data["category"] = resolve_category_from_part_of(
+                part_of,
+                categories_by_qid,
+                exclude_qid=data.get("wikidata_id"),
+            )
         errors: list[tuple[str, str, str]] = []
         if fetch_pageviews_backlinks:
             errors = self._fetch_pageviews_backlinks(events_data)

@@ -263,7 +263,7 @@ SELECT DISTINCT ?item ?itemLabel ?itemDescription
   ?end_time ?end_time_precision
   ?launch_time ?launch_time_precision
   ?landing_time ?landing_time_precision
-  ?location ?locationLabel ?article ?sitelinks
+  ?location ?locationLabel ?article ?sitelinks ?part_of
 WHERE {{
   VALUES ?type {{ {values} }}
   ?item wdt:P31/wdt:P279* ?type .
@@ -278,6 +278,7 @@ WHERE {{
   OPTIONAL {{ ?item p:P619/psv:P619 [wikibase:timeValue ?launch_time; wikibase:timePrecision ?launch_time_precision] . }}
   OPTIONAL {{ ?item p:P620/psv:P620 [wikibase:timeValue ?landing_time; wikibase:timePrecision ?landing_time_precision] . }}
   OPTIONAL {{ ?item wdt:P276 ?location . }}
+  OPTIONAL {{ ?item wdt:P361 ?part_of . }}
   FILTER(BOUND(?point_in_time) || BOUND(?start_time) || BOUND(?end_time) || BOUND(?launch_time) || BOUND(?landing_time))
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
   {year_filter}
@@ -368,6 +369,19 @@ LIMIT {limit}
                     return (qid, label or None)
         return (None, None)
 
+    @staticmethod
+    def _collect_part_of_qids(rows: list[dict]) -> list[str]:
+        """Collect P361 (part of) QIDs from rows, order preserved, deduplicated."""
+        seen: set[str] = set()
+        result: list[str] = []
+        for r in rows:
+            uri = r.get("part_of", {}).get("value", "")
+            qid = extract_wikidata_id(uri) or ""
+            if qid and qid not in seen:
+                seen.add(qid)
+                result.append(qid)
+        return result
+
     def _parse_bindings(self, rows: list[dict]) -> list[dict]:
         by_qid: dict[str, list[dict]] = {}
         for row in rows:
@@ -408,6 +422,7 @@ LIMIT {limit}
             article_val = self._get_val(r0, "article")
             wikidata_url = f"https://www.wikidata.org/wiki/{qid}" if qid else None
             location_qid, location_name = self._pick_primary_location(qid_rows)
+            part_of_qids = self._collect_part_of_qids(qid_rows)
             sitelinks_val = self._get_val(r0, "sitelinks")
             sitelink_count = 0
             if sitelinks_val:
@@ -431,6 +446,7 @@ LIMIT {limit}
                     "wikipedia_url": article_val,
                     "wikipedia_title": extract_wikipedia_title(article_val or ""),
                     "sitelink_count": sitelink_count,
+                    "part_of": part_of_qids,
                 }
             )
         return events
