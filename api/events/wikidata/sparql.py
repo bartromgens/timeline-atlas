@@ -20,8 +20,8 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q891854", "label": "military campaign"},
     {"qid": "Q12184", "label": "pandemic"},
     {"qid": "Q3839081", "label": "disaster"},
+    {"qid": "Q744913", "label": "aviation accident"},
     {"qid": "Q35127", "label": "genocide"},
-    {"qid": "Q3024240", "label": "historical event"},
     {"qid": "Q2401485", "label": "expedition"},
     {"qid": "Q1361567", "label": "coronation"},
     {"qid": "Q3882219", "label": "assassination"},
@@ -36,6 +36,9 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q184211", "label": "referendum"},
     {"qid": "Q273120", "label": "protest"},
     {"qid": "Q124757", "label": "riot"},
+    {"qid": "Q172754", "label": "world's fair"},
+    {"qid": "Q1417098", "label": "inauguration"},
+    {"qid": "Q625298", "label": "peace treaty"},
 ]
 DEFAULT_MIN_SITELINKS = 2
 
