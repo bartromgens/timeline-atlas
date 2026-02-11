@@ -41,6 +41,7 @@ class EventTypeLoadProgress(models.Model):
     year_end = models.IntegerField()
     last_updated_at = models.DateTimeField()
     events_created = models.PositiveIntegerField(default=0)
+    events_updated = models.PositiveIntegerField(default=0)
     error_count = models.PositiveIntegerField(default=0)
 
     class Meta:

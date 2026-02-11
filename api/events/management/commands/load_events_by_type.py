@@ -101,6 +101,7 @@ def _record_batch_progress(
     year_start: int,
     year_end: int,
     events_created: int = 0,
+    events_updated: int = 0,
     error_count: int = 0,
 ) -> None:
     EventTypeLoadProgress.objects.update_or_create(
@@ -110,6 +111,7 @@ def _record_batch_progress(
         defaults={
             "last_updated_at": timezone.now(),
             "events_created": events_created,
+            "events_updated": events_updated,
             "error_count": error_count,
         },
     )
@@ -260,6 +262,7 @@ class Command(BaseCommand):
                 start_year,
                 end_year,
                 events_created=created,
+                events_updated=updated,
                 error_count=len(errors),
             )
         self.stdout.write(
@@ -320,6 +323,7 @@ class Command(BaseCommand):
                     batch_start,
                     batch_end,
                     events_created=created,
+                    events_updated=updated,
                     error_count=len(errors),
                 )
                 total_created += created

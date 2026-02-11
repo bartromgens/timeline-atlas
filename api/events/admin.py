@@ -71,6 +71,7 @@ class EventTypeLoadProgressAdmin(admin.ModelAdmin):
         "year_end",
         "last_updated_at",
         "events_created",
+        "events_updated",
         "error_count",
     ]
     list_filter = ["event_type"]
@@ -81,6 +82,7 @@ class EventTypeLoadProgressAdmin(admin.ModelAdmin):
         "year_end",
         "last_updated_at",
         "events_created",
+        "events_updated",
         "error_count",
     ]
 
