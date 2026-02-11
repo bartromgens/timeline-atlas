@@ -97,6 +97,8 @@ class EventAdmin(admin.ModelAdmin):
         "sitelink_count",
         "pageviews_30d",
         "backlink_count",
+        "created_datetime",
+        "updated_datetime",
     ]
     list_display_links = ["wikidata_id"]
     list_filter = ["category", "event_type", HasCoordsFilter]
@@ -118,6 +120,8 @@ class EventAdmin(admin.ModelAdmin):
         "start_time",
         "end_time",
         "importance_score",
+        "created_datetime",
+        "updated_datetime",
     ]
 
     fieldsets = (
@@ -165,6 +169,10 @@ class EventAdmin(admin.ModelAdmin):
                     "importance_score",
                 )
             },
+        ),
+        (
+            "Audit",
+            {"fields": ("created_datetime", "updated_datetime")},
         ),
     )
 

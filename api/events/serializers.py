@@ -50,5 +50,7 @@ class EventSerializer(serializers.ModelSerializer):
             "backlink_count",
             "sort_date",
             "importance_score",
+            "created_datetime",
+            "updated_datetime",
         ]
         read_only_fields = fields

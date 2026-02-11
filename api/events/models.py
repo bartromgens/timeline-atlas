@@ -88,6 +88,9 @@ class Event(models.Model):
     sort_date = models.CharField(max_length=32, blank=True, db_index=True)
     importance_score = models.FloatField(null=True, blank=True, db_index=True)
 
+    created_datetime = models.DateTimeField(auto_now_add=True, null=True)
+    updated_datetime = models.DateTimeField(auto_now=True, null=True)
+
     objects = EventManager()
 
     class Meta:
