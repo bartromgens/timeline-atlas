@@ -29,6 +29,30 @@ class EventType(models.Model):
         verbose_name_plural = "event types"
 
 
+class EventTypeLoadProgress(models.Model):
+    """Tracks when a (event_type, year_start, year_end) batch was last loaded."""
+
+    event_type = models.ForeignKey(
+        EventType,
+        on_delete=models.CASCADE,
+        related_name="load_progress",
+    )
+    year_start = models.IntegerField()
+    year_end = models.IntegerField()
+    last_updated_at = models.DateTimeField()
+    events_created = models.PositiveIntegerField(default=0)
+    error_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_type", "year_start", "year_end"],
+                name="events_eventtypeloadprogress_unique_batch",
+            )
+        ]
+        verbose_name_plural = "event type load progress"
+
+
 class EventQuerySet(models.QuerySet["Event"]):
     def in_date_range(
         self,

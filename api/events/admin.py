@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils.html import escape, format_html
 
-from api.events.models import Category, Event, EventType
+from api.events.models import Category, Event, EventType, EventTypeLoadProgress
 
 
 class HasCoordsFilter(admin.SimpleListFilter):
@@ -61,6 +61,28 @@ class EventTypeAdmin(admin.ModelAdmin):
     @admin.display(description="Events")
     def event_count(self, obj: EventType) -> int:
         return obj.events.count()
+
+
+@admin.register(EventTypeLoadProgress)
+class EventTypeLoadProgressAdmin(admin.ModelAdmin):
+    list_display = [
+        "event_type",
+        "year_start",
+        "year_end",
+        "last_updated_at",
+        "events_created",
+        "error_count",
+    ]
+    list_filter = ["event_type"]
+    list_display_links = ["event_type", "year_start", "year_end"]
+    readonly_fields = [
+        "event_type",
+        "year_start",
+        "year_end",
+        "last_updated_at",
+        "events_created",
+        "error_count",
+    ]
 
 
 def _json_property_display(items: list) -> str:
