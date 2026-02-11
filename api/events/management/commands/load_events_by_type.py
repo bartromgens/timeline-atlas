@@ -1,5 +1,6 @@
 import logging
 import sys
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
 
@@ -10,10 +11,16 @@ from api.events.wikidata.sparql import (
     HISTORICAL_EVENT_TYPES,
 )
 
+YEAR_BATCH_SIZE = 50
+DEFAULT_ALL_START_YEAR = -3000
+
 _TYPE_SUGGESTIONS = ", ".join(
     f"{t['qid']}={t['label']}" for t in HISTORICAL_EVENT_TYPES
 )
-_TYPE_HELP = "Exactly one event type (QID or label). Suggestions: " + _TYPE_SUGGESTIONS
+_TYPE_HELP = (
+    "One event type (QID or label). Omit when using --all. "
+    "Suggestions: " + _TYPE_SUGGESTIONS
+)
 
 
 def _resolve_type(value: str) -> tuple[str, str] | None:
@@ -43,6 +50,18 @@ def _get_or_create_event_type(qid: str, label: str) -> EventType:
     )[0]
 
 
+def _year_ranges(
+    start_year: int, end_year: int, batch_size: int
+) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    current = start_year
+    while current <= end_year:
+        batch_end = min(current + batch_size - 1, end_year)
+        ranges.append((current, batch_end))
+        current = batch_end + 1
+    return ranges
+
+
 class Command(BaseCommand):
     help = (
         "Discover important historical events from Wikidata by event type "
@@ -55,8 +74,17 @@ class Command(BaseCommand):
             "--type",
             dest="type_qid",
             metavar="QID_OR_LABEL",
-            required=True,
+            default=None,
             help=_TYPE_HELP,
+        )
+        parser.add_argument(
+            "--all",
+            action="store_true",
+            dest="load_all",
+            help=(
+                "Load all event types in batches: one type per batch, "
+                "50-year year ranges per batch. Ignores --type."
+            ),
         )
         parser.add_argument(
             "--start-year",
@@ -82,8 +110,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--limit",
             type=int,
-            default=500,
-            help="Max number of events to fetch (default 500).",
+            default=2000,
+            help="Max number of events to fetch (default 2000).",
         )
         parser.add_argument(
             "--no-pageviews",
@@ -97,7 +125,21 @@ class Command(BaseCommand):
             format="%(levelname)s: %(message)s",
         )
 
+        if options["load_all"]:
+            self._handle_all(options)
+        else:
+            self._handle_single(options)
+
+    def _handle_single(self, options: dict) -> None:
         raw = options["type_qid"]
+        if not raw:
+            self.stderr.write(
+                self.style.ERROR(
+                    "Specify exactly one event type with --type, or use --all "
+                    "to load all event types."
+                )
+            )
+            sys.exit(1)
         resolved = _resolve_type(raw)
         if not resolved:
             self.stderr.write(
@@ -126,5 +168,56 @@ class Command(BaseCommand):
         if errors:
             self.stderr.write("Events with fetch errors (pageviews/backlinks):\n")
             for label_or_id, fetch_type, msg in errors:
+                self.stderr.write(f"  {label_or_id} ({fetch_type}): {msg}\n")
+            sys.stderr.flush()
+
+    def _handle_all(self, options: dict) -> None:
+        if options["type_qid"]:
+            self.stdout.write(self.style.WARNING("--all is set; ignoring --type."))
+        start_year = (
+            options["start_year"]
+            if options["start_year"] is not None
+            else DEFAULT_ALL_START_YEAR
+        )
+        end_year = (
+            options["end_year"]
+            if options["end_year"] is not None
+            else datetime.now().year
+        )
+        year_ranges = _year_ranges(start_year, end_year, YEAR_BATCH_SIZE)
+
+        loader = EventLoader()
+        total_created = 0
+        total_updated = 0
+        all_errors: list[tuple[str, str, str]] = []
+
+        for type_info in HISTORICAL_EVENT_TYPES:
+            qid = type_info["qid"]
+            label = type_info["label"]
+            event_type = _get_or_create_event_type(qid, label)
+
+            for batch_start, batch_end in year_ranges:
+                created, updated, errors = loader.load_by_type(
+                    type_qids=[qid],
+                    event_type=event_type,
+                    start_year=batch_start,
+                    end_year=batch_end,
+                    min_sitelinks=options["min_sitelinks"],
+                    limit=options["limit"],
+                    fetch_pageviews_backlinks=not options["no_pageviews"],
+                )
+                total_created += created
+                total_updated += updated
+                all_errors.extend(errors)
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Loaded all types: {total_created} created, "
+                f"{total_updated} updated."
+            )
+        )
+        if all_errors:
+            self.stderr.write("Events with fetch errors (pageviews/backlinks):\n")
+            for label_or_id, fetch_type, msg in all_errors:
                 self.stderr.write(f"  {label_or_id} ({fetch_type}): {msg}\n")
             sys.stderr.flush()

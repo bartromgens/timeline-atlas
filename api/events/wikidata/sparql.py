@@ -37,7 +37,7 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q273120", "label": "protest"},
     {"qid": "Q124757", "label": "riot"},
 ]
-DEFAULT_MIN_SITELINKS = 20
+DEFAULT_MIN_SITELINKS = 2
 
 WIKIDATA_TIME_PRECISION = {
     9: "year",

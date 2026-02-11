@@ -166,6 +166,17 @@ class EventLoader:
             end_year=end_year,
             limit=limit,
         )
+        if len(events_data) >= limit:
+            logger.warning(
+                "Query limit reached: %d results (limit=%d). Consider increasing "
+                "limit or narrowing year range. category_qid=%s, start_year=%s, "
+                "end_year=%s",
+                len(events_data),
+                limit,
+                category_qid,
+                start_year,
+                end_year,
+            )
         errors: list[tuple[str, str, str]] = []
         if fetch_pageviews_backlinks:
             errors = self._fetch_pageviews_backlinks(events_data)
@@ -195,6 +206,17 @@ class EventLoader:
             min_sitelinks=min_sitelinks,
             limit=limit,
         )
+        if len(events_data) >= limit:
+            logger.warning(
+                "Query limit reached: %d results (limit=%d). Consider increasing "
+                "limit or narrowing year range. type_qids=%s, start_year=%s, "
+                "end_year=%s",
+                len(events_data),
+                limit,
+                type_qids,
+                start_year,
+                end_year,
+            )
         categories_by_qid = {
             c.wikidata_id: c for c in Category.objects.only("pk", "wikidata_id")
         }
