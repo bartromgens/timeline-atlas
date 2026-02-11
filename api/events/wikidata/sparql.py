@@ -16,7 +16,7 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q178561", "label": "battle"},
     {"qid": "Q131569", "label": "treaty"},
     {"qid": "Q8690", "label": "revolution"},
-    {"qid": "Q124757", "label": "siege"},
+    {"qid": "Q188055", "label": "siege"},
     {"qid": "Q891854", "label": "military campaign"},
     {"qid": "Q12184", "label": "pandemic"},
     {"qid": "Q3839081", "label": "disaster"},
@@ -24,6 +24,18 @@ HISTORICAL_EVENT_TYPES: list[dict[str, str]] = [
     {"qid": "Q3024240", "label": "historical event"},
     {"qid": "Q2401485", "label": "expedition"},
     {"qid": "Q1361567", "label": "coronation"},
+    {"qid": "Q3882219", "label": "assassination"},
+    {"qid": "Q2133344", "label": "space mission"},
+    {"qid": "Q45382", "label": "coup d'état"},
+    {"qid": "Q1464916", "label": "declaration of independence"},
+    {"qid": "Q40231", "label": "election"},
+    {"qid": "Q168247", "label": "famine"},
+    {"qid": "Q5389", "label": "Olympic Games"},
+    {"qid": "Q124734", "label": "rebellion"},
+    {"qid": "Q3199915", "label": "massacre"},
+    {"qid": "Q184211", "label": "referendum"},
+    {"qid": "Q273120", "label": "protest"},
+    {"qid": "Q124757", "label": "riot"},
 ]
 DEFAULT_MIN_SITELINKS = 20
 
@@ -229,7 +241,7 @@ LIMIT {limit}
         values = " ".join(f"wd:{q}" for q in type_qids)
         year_filter = ""
         if start_year is not None or end_year is not None:
-            date_expr = "COALESCE(?start_time, ?point_in_time, ?end_time)"
+            date_expr = "COALESCE(?start_time, ?point_in_time, ?end_time, ?launch_time, ?landing_time)"
             parts: list[str] = []
             if start_year is not None:
                 parts.append(f"(YEAR({date_expr}) >= {start_year})")
@@ -249,6 +261,8 @@ SELECT DISTINCT ?item ?itemLabel ?itemDescription
   ?point_in_time ?point_in_time_precision
   ?start_time ?start_time_precision
   ?end_time ?end_time_precision
+  ?launch_time ?launch_time_precision
+  ?landing_time ?landing_time_precision
   ?location ?locationLabel ?article ?sitelinks
 WHERE {{
   VALUES ?type {{ {values} }}
@@ -261,8 +275,10 @@ WHERE {{
   OPTIONAL {{ ?item p:P585/psv:P585 [wikibase:timeValue ?point_in_time; wikibase:timePrecision ?point_in_time_precision] . }}
   OPTIONAL {{ ?item p:P580/psv:P580 [wikibase:timeValue ?start_time; wikibase:timePrecision ?start_time_precision] . }}
   OPTIONAL {{ ?item p:P582/psv:P582 [wikibase:timeValue ?end_time; wikibase:timePrecision ?end_time_precision] . }}
+  OPTIONAL {{ ?item p:P619/psv:P619 [wikibase:timeValue ?launch_time; wikibase:timePrecision ?launch_time_precision] . }}
+  OPTIONAL {{ ?item p:P620/psv:P620 [wikibase:timeValue ?landing_time; wikibase:timePrecision ?landing_time_precision] . }}
   OPTIONAL {{ ?item wdt:P276 ?location . }}
-  FILTER(BOUND(?point_in_time) || BOUND(?start_time) || BOUND(?end_time))
+  FILTER(BOUND(?point_in_time) || BOUND(?start_time) || BOUND(?end_time) || BOUND(?launch_time) || BOUND(?landing_time))
   SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
   {year_filter}
 }}
@@ -367,6 +383,7 @@ LIMIT {limit}
                 "point_in_time_precision",
                 "point_in_time_q",
                 "point_in_time_p793",
+                "launch_time",
             )
             st_raw, st_prec = self._pick_raw_and_precision(
                 qid_rows,
@@ -374,6 +391,7 @@ LIMIT {limit}
                 "start_time_precision",
                 "start_time_q",
                 "date_of_birth",
+                "launch_time",
             )
             et_raw, et_prec = self._pick_raw_and_precision(
                 qid_rows,
@@ -381,6 +399,7 @@ LIMIT {limit}
                 "end_time_precision",
                 "end_time_q",
                 "date_of_death",
+                "landing_time",
             )
             point_in_time = normalize_date(pt_raw, pt_prec)
             start_time = normalize_date(st_raw, st_prec)
